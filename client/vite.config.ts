@@ -10,8 +10,9 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(__dirname, '.'),
       },
+      extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
     },
     build: {
       outDir: 'dist',

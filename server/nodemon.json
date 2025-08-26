@@ -1,0 +1,5 @@
+{
+  "watch": ["**/*.js", ".env"],
+  "ext": "js,json",
+  "exec": "node start.js"
+}

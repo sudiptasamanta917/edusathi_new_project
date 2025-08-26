@@ -1,7 +1,17 @@
-export const API_BASE =
+// Use environment-based API URL
+const API_BASE_URL =
   (import.meta as any).env?.VITE_API_URL ||
   (import.meta as any).env?.VITE_SERVER_URL ||
   "http://localhost:3001";
+
+export const api = {
+  baseURL: API_BASE_URL,
+};
+
+// export const API_BASE =
+//   (import.meta as any).env?.VITE_API_URL ||
+//   (import.meta as any).env?.VITE_SERVER_URL ||
+//   "http://localhost:3001";
 
 export function authHeaders(): Record<string, string> {
   const token =
@@ -19,7 +29,7 @@ async function refreshAccessToken() {
     sessionStorage.getItem("refreshToken") ||
     localStorage.getItem("refreshToken");
   if (!rt) throw new Error("No refresh_token");
-  const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+  const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: rt }),
@@ -40,7 +50,7 @@ async function refreshAccessToken() {
 }
 
 async function request<T>(path: string, init: RequestInit, retry = true): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
+  const res = await fetch(`${API_BASE_URL}${path}`, init);
   if (res.status === 401 && retry) {
     try {
       await refreshAccessToken();

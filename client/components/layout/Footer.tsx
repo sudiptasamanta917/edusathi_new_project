@@ -150,7 +150,7 @@ export default function Footer() {
         <div className="text-center text-sm text-slate-600 dark:text-slate-400">
           <p>
             © 2025 Edusathi. All rights reserved. Made with ❤️ for educators
-            worldwide.
+            worldwide. Sujay Pradhan
           </p>
         </div>
       </div>

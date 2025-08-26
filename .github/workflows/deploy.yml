@@ -1,0 +1,79 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          client/package-lock.json
+          server/package-lock.json
+
+    - name: Install client dependencies
+      run: |
+        cd client
+        npm ci
+
+    - name: Build client
+      run: |
+        cd client
+        npm run build
+
+    - name: Install server dependencies
+      run: |
+        cd server
+        npm ci
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          cd /var/www/edusathi
+          git pull origin main
+          
+          # Update server
+          cd server
+          npm install --production
+          
+          # Update client
+          cd ../client
+          npm install
+          npm run build
+          
+          # Update environment variables
+          cd ../server
+          echo "PORT=3001" > .env
+          echo "MONGODB_URI=mongodb://localhost:27017/edusathi_production" >> .env
+          echo "RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}" >> .env
+          echo "RAZORPAY_KEY_SECRET=${{ secrets.RAZORPAY_KEY_SECRET }}" >> .env
+          echo "PING_MESSAGE=ping" >> .env
+          echo "JWT_ACCESS_SECRET=your_super_secure_access_secret_here" >> .env
+          echo "JWT_REFRESH_SECRET=your_super_secure_refresh_secret_here" >> .env
+          echo "JWT_ACCESS_EXPIRES=15m" >> .env
+          echo "JWT_REFRESH_EXPIRES=7d" >> .env
+          echo "VITE_ADMIN_EMAIL=admin@edusathi.com" >> .env
+          echo "VITE_ADMIN_PASSWORD=edusathi2025" >> .env
+          echo "NODE_ENV=production" >> .env
+          
+          # Restart application
+          pm2 restart edusathi-server
+          
+          # Restart Nginx
+          sudo systemctl reload nginx

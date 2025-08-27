@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { 
-  Sparkles, 
-  Play, 
-  ArrowRight, 
-  Star, 
-  Shield, 
-  Brain, 
-  Users, 
+import {
+  Sparkles,
+  Play,
+  ArrowRight,
+  Star,
+  Shield,
+  Brain,
+  Users,
   BarChart3,
   Zap,
   Award,
@@ -22,6 +22,8 @@ import {
 
 export default function EnhancedHeroSection() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [displayText, setDisplayText] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
 
   // Enhanced floating elements with more variety
   const floatingElements = [
@@ -33,22 +35,36 @@ export default function EnhancedHeroSection() {
     { icon: <Award className="w-5 h-5" />, text: "Certified Quality", delay: 5, position: "top-2/3 right-1/5" },
   ];
 
-  // Rotating text options
-  const rotatingTexts = [
-    "revolutionize education",
-    "streamline operations", 
-    "boost student engagement",
-    "enhance learning outcomes",
-    "automate administrative tasks",
-    "drive institutional growth"
+  // Three main texts for rotation
+  const mainTexts = [
+    "All Boards.",
+    "All Subjects.",
+    "All Students."
   ];
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % rotatingTexts.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+    const currentText = mainTexts[activeIndex];
+    let i = 0;
+    setDisplayText('');
+    setIsTyping(true);
+
+    const typingInterval = setInterval(() => {
+      if (i < currentText.length) {
+        setDisplayText(currentText.slice(0, i + 1));
+        i++;
+      } else {
+        clearInterval(typingInterval);
+        setIsTyping(false);
+
+        // Wait for 2 seconds before changing to next text
+        setTimeout(() => {
+          setActiveIndex((prev) => (prev + 1) % mainTexts.length);
+        }, 2000);
+      }
+    }, 100); // Typing speed
+
+    return () => clearInterval(typingInterval);
+  }, [activeIndex]);
 
   // Enhanced stats with better visuals
   const stats = [
@@ -71,12 +87,12 @@ export default function EnhancedHeroSection() {
       <div className="absolute inset-0">
         {/* Animated gradient mesh */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-indigo-500/10 dark:from-blue-400/20 dark:via-purple-400/10 dark:to-indigo-400/20 animate-pulse"></div>
-        
+
         {/* Floating orbs with better positioning */}
         <div className="absolute top-20 left-10 w-96 h-96 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl animate-float opacity-60"></div>
         <div className="absolute bottom-20 right-10 w-80 h-80 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-float opacity-60" style={{ animationDelay: "2s" }}></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-gradient-to-r from-indigo-400/20 to-blue-400/20 rounded-full blur-3xl animate-float opacity-60" style={{ animationDelay: "4s" }}></div>
-        
+
         {/* Grid pattern overlay */}
         <div className="absolute inset-0 bg-grid-slate-100 dark:bg-grid-slate-800 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] opacity-20"></div>
       </div>
@@ -106,7 +122,7 @@ export default function EnhancedHeroSection() {
 
       {/* Main Content */}
       <section className="container max-w-7xl mx-auto px-4 py-16 sm:py-20 md:py-24 lg:py-32 text-center relative z-10">
-        
+
         {/* Enhanced Trust Badge */}
         <div className="animate-in fade-in duration-700 delay-100 mb-8">
           <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-indigo-500/10 dark:from-blue-400/20 dark:via-purple-400/20 dark:to-indigo-400/20 border border-blue-200/50 dark:border-blue-700/50 backdrop-blur-md shadow-lg">
@@ -125,29 +141,41 @@ export default function EnhancedHeroSection() {
         {/* Enhanced Main Heading */}
         <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 mb-8">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
-            <span className="block bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 dark:from-slate-100 dark:via-blue-100 dark:to-slate-100 bg-clip-text text-transparent">
-              Transform Education
+            <span className="block bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 dark:from-slate-100 dark:via-blue-100 dark:to-slate-100 bg-clip-text text-transparent mb-4">
+              We Provide
+              Quality Classes  <br />
+              for 
+               {displayText}
+              {isTyping && (
+                <span className="absolute -right-2 animate-pulse text-current">|</span>
+              )}
             </span>
-            <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mt-2">
-              with AI Innovation
+            <span className="font-bold relative">
+             
+            </span>
+            <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              <span className="inline-block">
+              </span>
             </span>
           </h1>
         </div>
 
-        {/* Enhanced Description with Rotating Text */}
+        {/* Enhanced Description */}
         <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 mb-12">
           <p className="text-lg sm:text-xl md:text-2xl text-slate-700 dark:text-slate-300 max-w-5xl mx-auto leading-relaxed">
             Harness the power of{" "}
             <span className="font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
               artificial intelligence
             </span>{" "}
-            to{" "}
-            <span className="inline-block min-w-[280px] text-left">
-              <span className="font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                {rotatingTexts[activeIndex]}
+            to revolutionize education and drive your institution towards excellence with our comprehensive platform for{" "}
+            <span className="inline-block min-w-[200px] text-left">
+              <span className="font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent relative">
+                {displayText}
+                {isTyping && (
+                  <span className="absolute -right-1 animate-pulse text-emerald-600">|</span>
+                )}
               </span>
-            </span>{" "}
-            and drive your institution towards excellence.
+            </span>
           </p>
         </div>
 
@@ -185,7 +213,7 @@ export default function EnhancedHeroSection() {
                 <ArrowRight className="w-6 h-6 ml-3 relative z-10 transform group-hover:translate-x-2 transition-transform duration-300" />
               </Button>
             </Link>
-            
+
             <Button
               variant="outline"
               size="lg"

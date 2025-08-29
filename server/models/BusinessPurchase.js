@@ -15,6 +15,11 @@ const BusinessPurchaseSchema = new Schema(
     currency: { type: String, default: 'INR' },
     durationDays: { type: Number, default: null },
     billing: { type: Schema.Types.Mixed, default: null },
+    // Snapshot of the user who initiated the purchase
+    createdById: { type: Schema.Types.ObjectId, index: true, default: null },
+    createdByRole: { type: String, index: true, default: 'guest' },
+    createdByEmail: { type: String, lowercase: true, default: null },
+    createdByName: { type: String, default: null },
     razorpay_order_id: { type: String, required: true, unique: true, index: true },
     razorpay_payment_id: { type: String, default: null },
     status: { type: String, enum: ['created', 'paid', 'failed'], default: 'created', index: true },

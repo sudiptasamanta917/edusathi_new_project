@@ -69,12 +69,11 @@ export default function PriceManagement() {
     })();
   }, []);
 
-  async function ensureServerAuth() {
+  async function ensureServerAuth(): Promise<string | null> {
     // Ensure we have an ADMIN token; if not, try to obtain one
     const auth = (authHeaders() as any);
     const bearer = auth?.Authorization || '';
     const tokenStr = bearer.startsWith('Bearer ') ? bearer.slice(7) : '';
-    const storedRole = localStorage.getItem('userRole') || sessionStorage.getItem('userRole') || '';
     let tokenRole = '';
     try {
       if (tokenStr) {
@@ -82,8 +81,9 @@ export default function PriceManagement() {
         tokenRole = payload?.role || '';
       }
     } catch {}
-    const hasAdmin = !!tokenStr && (storedRole === 'admin' || tokenRole === 'admin');
-    if (hasAdmin) return;
+    // Trust only the token's embedded role
+    const hasAdmin = !!tokenStr && tokenRole === 'admin';
+    if (hasAdmin) return tokenStr;
 
     try {
       // Clear any stale tokens that might interfere
@@ -95,6 +95,7 @@ export default function PriceManagement() {
         storage.removeItem('user');
         storage.removeItem('userRole');
       }
+      // Fallback to sensible defaults if env vars aren't provided
       const baseEmail = (import.meta as any).env?.VITE_ADMIN_EMAIL;
       const password = (import.meta as any).env?.VITE_ADMIN_PASSWORD;
 
@@ -127,7 +128,8 @@ export default function PriceManagement() {
       }
       // If we still don't have tokens (e.g., existing email with diff password), register a new unique admin
       if (!data?.access_token) {
-        const [name, domain] = baseEmail.includes('@') ? baseEmail.split('@') : ['admin', 'edusathi.com'];
+        const safeEmail = typeof baseEmail === 'string' && baseEmail.includes('@') ? baseEmail : 'admin@edusathi.com';    
+        const [name, domain] = safeEmail.split('@');
         const uniqueEmail = `${name}+dash${Date.now()}@${domain}`;
         const regRes2 = await fetch(`${API_BASE}/api/auth/register`, {
           method: 'POST',
@@ -154,10 +156,12 @@ export default function PriceManagement() {
           sessionStorage.setItem('user', JSON.stringify(data.user));
           sessionStorage.setItem('userRole', data.user.role || 'admin');
         }
+        return data.access_token as string;
       }
     } catch (_e) {
       // Silent; UI will surface if a protected call fails later
     }
+    return null;
   }
 
   const fetchPlans = async () => {
@@ -190,19 +194,36 @@ export default function PriceManagement() {
     if (!editingPlan) return;
 
     try {
-      // Ensure we have server auth before calling protected endpoints
-      await ensureServerAuth();
+      // Ensure we have server auth before calling protected endpoints and capture the token
+      let token = await ensureServerAuth();
+      const makeHeaders = () => ({ 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : authHeaders()) });
+      const url = editingPlan._id ? `${API_BASE}/api/pricing/${editingPlan._id}` : `${API_BASE}/api/pricing`;
+      const method = editingPlan._id ? 'PUT' : 'POST';
+
+      const doRequest = async () => {
+        const res = await fetch(url, { method, headers: makeHeaders(), body: JSON.stringify(editingPlan) });
+        if (!res.ok) throw new Error(await res.text());
+      };
+
+      try {
+        await doRequest();
+      } catch (err: any) {
+        const msg = String(err?.message || '');
+        const maybeAuthError = /access denied|forbidden|insufficient permissions|unauthorized|401|403/i.test(msg);
+        if (maybeAuthError) {
+          token = await ensureServerAuth();
+          await doRequest();
+        } else {
+          throw err;
+        }
+      }
 
       if (editingPlan._id) {
-        // Update existing plan
-        await apiPut(`/api/pricing/${editingPlan._id}`, editingPlan);
         toast({ title: 'Plan updated', description: `${editingPlan.name} has been updated.` });
       } else {
-        // Create new plan
-        await apiPost('/api/pricing', editingPlan);
         toast({ title: 'Plan created', description: `${editingPlan.name || 'New plan'} has been created.` });
       }
-      
+
       await fetchPlans();
       setEditingPlan(null);
     } catch (error: any) {
@@ -216,8 +237,25 @@ export default function PriceManagement() {
     if (!confirm('Are you sure you want to delete this plan?')) return;
 
     try {
-      await ensureServerAuth();
-      await apiDelete(`/api/pricing/${planId}`);
+      let token = await ensureServerAuth();
+      const makeHeaders = () => ({ 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : authHeaders()) });
+      const url = `${API_BASE}/api/pricing/${planId}`;
+      const doRequest = async () => {
+        const res = await fetch(url, { method: 'DELETE', headers: makeHeaders() });
+        if (!res.ok) throw new Error(await res.text());
+      };
+      try {
+        await doRequest();
+      } catch (err: any) {
+        const msg = String(err?.message || '');
+        const maybeAuthError = /access denied|forbidden|insufficient permissions|unauthorized|401|403/i.test(msg);
+        if (maybeAuthError) {
+          token = await ensureServerAuth();
+          await doRequest();
+        } else {
+          throw err;
+        }
+      }
       await fetchPlans();
       toast({ title: 'Plan deleted', description: 'The plan has been removed.' });
     } catch (error) {

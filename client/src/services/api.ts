@@ -104,8 +104,9 @@ api.interceptors.response.use(
         originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (_e) {
-        clearAllAuthStorage();
+        // Read role before clearing to preserve redirect
         const role = localStorage.getItem('userRole') || sessionStorage.getItem('userRole') || '';
+        clearAllAuthStorage();
         const authPath = role ? `/auth?role=${role}` : '/auth';
         window.location.href = authPath;
       }

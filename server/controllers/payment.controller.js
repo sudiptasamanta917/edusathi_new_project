@@ -99,17 +99,35 @@ export const createPaymentOrder = async (req, res) => {
 
     const receipt = `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+    const normEmail = String(email).toLowerCase().trim();
+    const normDomain = String(domain).toLowerCase().trim();
+    const normInstitute = String(institute || '').trim();
+    const normOwner = String(owner || '').trim();
+
     const order = await rp.orders.create({
       amount: amount,
       currency: 'INR',
       receipt: receipt,
-      notes: { institute, owner, email, plan, domain, durationDays: durationDays ?? null, billing: billing ?? null, timestamp: new Date().toISOString() },
+      notes: { institute: normInstitute, owner: normOwner, email: normEmail, plan, domain: normDomain, durationDays: durationDays ?? null, billing: billing ?? null, timestamp: new Date().toISOString() },
     });
 
     // Persist a purchase record with status 'created'
     try {
       const authBizId = req.user?.role === 'business' ? req.user._id : null;
       const bizByEmail = email ? await Business.findOne({ email: String(email).toLowerCase() }).lean() : null;
+      // Determine actor (who initiated the purchase)
+      const actorRole = req.user?.role || (bizByEmail ? 'business' : 'guest');
+      const actorId = req.user?._id || null;
+      let createdByEmail = null;
+      let createdByName = null;
+      if (actorRole === 'business' && actorId) {
+        const actorBiz = await Business.findById(actorId).lean();
+        createdByEmail = actorBiz?.email || String(email || '').toLowerCase();
+        createdByName = actorBiz?.name || (owner || null);
+      } else {
+        createdByEmail = String(email || '').toLowerCase();
+        createdByName = owner || null;
+      }
       await BusinessPurchase.findOneAndUpdate(
         { razorpay_order_id: order.id },
         {
@@ -118,12 +136,16 @@ export const createPaymentOrder = async (req, res) => {
             email: String(email || '').toLowerCase(),
             instituteName: institute || '',
             ownerName: owner || '',
-            domain: domain || '',
+            domain: String(normDomain || ''),
             plan: plan || '',
             amount: Number(order.amount) || Number(amount) || 0,
             currency: order.currency || 'INR',
             durationDays: durationDays ?? null,
             billing: billing ?? null,
+            createdById: actorId,
+            createdByRole: actorRole,
+            createdByEmail,
+            createdByName,
             status: 'created',
           },
         },
@@ -159,11 +181,11 @@ export const verifyPayment = async (req, res) => {
       if (!orderDetails) throw new Error('Order not found');
 
       const notes = orderDetails.notes || {};
-      const institute = notes.institute;
-      const owner = notes.owner;
-      const email = notes.email;
+      const institute = String(notes.institute || '').trim();
+      const owner = String(notes.owner || '').trim();
+      const email = notes.email ? String(notes.email).toLowerCase().trim() : null;
       const plan = notes.plan;
-      const domain = notes.domain;
+      const domain = notes.domain ? String(notes.domain).toLowerCase().trim() : null;
       const durationDays = notes.durationDays;
 
       if (!institute || !owner || !email || !plan || !domain) {
@@ -190,10 +212,26 @@ export const verifyPayment = async (req, res) => {
         // Update purchase record to 'paid' and link center/business
         try {
           const authBizId = req.user?.role === 'business' ? req.user._id : null;
-          const biz = authBizId ? await Business.findById(authBizId).lean() : (email ? await Business.findOne({ email: String(email).toLowerCase() }).lean() : null);
+          const biz = authBizId ? await Business.findById(authBizId).lean() : (email ? await Business.findOne({ email }).lean() : null);
+          // Determine actor (who initiated the purchase)
+          const actorRole = req.user?.role || (biz ? 'business' : 'guest');
+          const actorId = req.user?._id || null;
+          let createdByEmail = null;
+          let createdByName = null;
+          if (actorRole === 'business' && actorId) {
+            const actorBiz = await Business.findById(actorId).lean();
+            createdByEmail = actorBiz?.email || String(email || '');
+            createdByName = actorBiz?.name || (owner || null);
+          } else {
+            createdByEmail = String(email || '');
+            createdByName = owner || null;
+          }
           await BusinessPurchase.findOneAndUpdate(
             { razorpay_order_id },
-            { $set: { status: 'paid', razorpay_payment_id, centerId: existingCenter._id, businessId: (authBizId || (biz ? biz._id : null)), plan, domain } },
+            {
+              $set: { status: 'paid', razorpay_payment_id, centerId: existingCenter._id, businessId: (authBizId || (biz ? biz._id : null)), plan, domain },
+              $setOnInsert: { createdById: actorId, createdByRole: actorRole, createdByEmail, createdByName },
+            },
             { upsert: true }
           );
         } catch (persistErr) {
@@ -223,9 +261,25 @@ export const verifyPayment = async (req, res) => {
       try {
         const authBizId = req.user?.role === 'business' ? req.user._id : null;
         const biz = authBizId ? await Business.findById(authBizId).lean() : (email ? await Business.findOne({ email: String(email).toLowerCase() }).lean() : null);
+        // Determine actor (who initiated the purchase)
+        const actorRole = req.user?.role || (biz ? 'business' : 'guest');
+        const actorId = req.user?._id || null;
+        let createdByEmail = null;
+        let createdByName = null;
+        if (actorRole === 'business' && actorId) {
+          const actorBiz = await Business.findById(actorId).lean();
+          createdByEmail = actorBiz?.email || String(email || '');
+          createdByName = actorBiz?.name || (owner || null);
+        } else {
+          createdByEmail = String(email || '');
+          createdByName = owner || null;
+        }
         await BusinessPurchase.findOneAndUpdate(
           { razorpay_order_id },
-          { $set: { status: 'paid', razorpay_payment_id, centerId: newCenter._id, businessId: (authBizId || (biz ? biz._id : null)), plan, domain } },
+          {
+            $set: { status: 'paid', razorpay_payment_id, centerId: newCenter._id, businessId: (authBizId || (biz ? biz._id : null)), plan, domain },
+            $setOnInsert: { createdById: actorId, createdByRole: actorRole, createdByEmail, createdByName },
+          },
           { upsert: true }
         );
       } catch (persistErr) {
@@ -237,9 +291,19 @@ export const verifyPayment = async (req, res) => {
       // Mark purchase as failed if we have an order id
       try {
         if (razorpay_order_id) {
+          // Determine actor (who initiated the purchase) if available
+          const actorRole = req.user?.role || 'guest';
+          const actorId = req.user?._id || null;
+          let createdByEmail = null;
+          let createdByName = null;
+          if (actorRole === 'business' && actorId) {
+            const actorBiz = await Business.findById(actorId).lean();
+            createdByEmail = actorBiz?.email || null;
+            createdByName = actorBiz?.name || null;
+          }
           await BusinessPurchase.findOneAndUpdate(
             { razorpay_order_id },
-            { $set: { status: 'failed' } },
+            { $set: { status: 'failed' }, $setOnInsert: { createdById: actorId, createdByRole: actorRole, createdByEmail, createdByName } },
             { upsert: true }
           );
         }

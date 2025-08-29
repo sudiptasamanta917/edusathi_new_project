@@ -98,12 +98,13 @@ export const getCenters = async (_req, res) => {
 export const setCenterTemplate = async (req, res) => {
   try {
     const { email, templateId } = req.body || {};
-    if (!email || !templateId) {
+    const normEmail = email ? String(email).trim().toLowerCase() : null;
+    if (!normEmail || !templateId) {
       return res.status(400).json({ error: "email and templateId are required" });
     }
 
     const center = await Center.findOneAndUpdate(
-      { email },
+      { email: normEmail },
       { $set: { templateId } },
       { new: true }
     );
@@ -122,7 +123,10 @@ export const setCenterTemplate = async (req, res) => {
 // Lookup a single center by email or domain and return subscription details
 export const findCenter = async (req, res) => {
   try {
-    const { email, domain } = req.query || {};
+    const rawEmail = (req.query || {}).email;
+    const rawDomain = (req.query || {}).domain;
+    const email = rawEmail ? String(rawEmail).trim().toLowerCase() : null;
+    const domain = rawDomain ? String(rawDomain).trim().toLowerCase() : null;
     if (!email && !domain) {
       return res.status(400).json({ error: "Provide email or domain to lookup" });
     }
@@ -130,12 +134,66 @@ export const findCenter = async (req, res) => {
     const orConds = [];
     if (email) orConds.push({ email });
     if (domain) orConds.push({ domain });
-    const center = await Center.findOne({ $or: orConds });
+    let center = await Center.findOne({ $or: orConds });
     if (!center) {
-      return res.status(404).json({ error: "Center not found" });
+      // Fallback: case-insensitive match for legacy records
+      const ciConds = [];
+      if (email) ciConds.push({ email: new RegExp(`^${email}$`, 'i') });
+      if (domain) ciConds.push({ domain: new RegExp(`^${domain}$`, 'i') });
+      if (ciConds.length) {
+        center = await Center.findOne({ $or: ciConds });
+      }
+      if (!center) {
+        return res.status(404).json({ error: "Center not found" });
+      }
     }
 
-    const status = new Date(center.expiresAt) > new Date() ? 'active' : 'inactive';
+    // Derive subscription dates for legacy centers that may not have them persisted
+    const startAtDate = center.subscriptionStartAt || center.createdAt || null;
+    let expiresAtDate = center.expiresAt || null;
+    if (!expiresAtDate) {
+      // Compute expiry from plan relative to start date
+      const lower = (center.plan || '').toLowerCase();
+      const base = startAtDate ? new Date(startAtDate) : new Date();
+      const daysMatch = lower.match(/(\d+)\s*day/);
+      const monthsMatch = lower.match(/(\d+)\s*month/);
+      const yearsMatch = lower.match(/(\d+)\s*year/);
+      if (daysMatch && daysMatch[1]) {
+        const d = new Date(base);
+        d.setDate(d.getDate() + parseInt(daysMatch[1], 10));
+        expiresAtDate = d;
+      } else if (monthsMatch && monthsMatch[1]) {
+        const d = new Date(base);
+        d.setMonth(d.getMonth() + parseInt(monthsMatch[1], 10));
+        expiresAtDate = d;
+      } else if (yearsMatch && yearsMatch[1]) {
+        const d = new Date(base);
+        d.setFullYear(d.getFullYear() + parseInt(yearsMatch[1], 10));
+        expiresAtDate = d;
+      } else if (lower.includes('weekly') || lower.includes('week')) {
+        const d = new Date(base);
+        d.setDate(d.getDate() + 7);
+        expiresAtDate = d;
+      } else if (lower.includes('monthly') || lower.includes('month')) {
+        const d = new Date(base);
+        d.setMonth(d.getMonth() + 1);
+        expiresAtDate = d;
+      } else if (lower.includes('quarter') || lower.includes('quarterly')) {
+        const d = new Date(base);
+        d.setMonth(d.getMonth() + 3);
+        expiresAtDate = d;
+      } else if ((lower.includes('half') && lower.includes('year')) || lower.includes('semiannual')) {
+        const d = new Date(base);
+        d.setMonth(d.getMonth() + 6);
+        expiresAtDate = d;
+      } else if (lower.includes('yearly') || lower.includes('year')) {
+        const d = new Date(base);
+        d.setFullYear(d.getFullYear() + 1);
+        expiresAtDate = d;
+      }
+    }
+
+    const status = expiresAtDate && new Date(expiresAtDate) > new Date() ? 'active' : 'inactive';
     return res.json({
       id: center._id.toString(),
       instituteName: center.instituteName,
@@ -143,8 +201,8 @@ export const findCenter = async (req, res) => {
       email: center.email,
       plan: center.plan,
       status,
-      subscriptionStartAt: center.subscriptionStartAt ? center.subscriptionStartAt.toISOString() : null,
-      expiresAt: center.expiresAt ? center.expiresAt.toISOString() : null,
+      subscriptionStartAt: startAtDate ? new Date(startAtDate).toISOString() : null,
+      expiresAt: expiresAtDate ? new Date(expiresAtDate).toISOString() : null,
       templateId: center.templateId || null,
     });
   } catch (error) {

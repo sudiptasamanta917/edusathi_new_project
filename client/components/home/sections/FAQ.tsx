@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function FAQ() {
@@ -28,28 +29,38 @@ export default function FAQ() {
     },
   ];
 
+  const [openItem, setOpenItem] = useState<string | undefined>(undefined);
+
   return (
     <section className="container max-w-4xl mx-auto px-4 py-20">
       <div className="text-center mb-16">
-        <h2 className="text-3xl md:text-4xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-4">
+        <h2 className="text-2xl md:text-3xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-4">
           Frequently asked questions
         </h2>
-        <p className="text-xl text-muted-foreground dark:text-slate-300">
+        <p className="text-base text-muted-foreground dark:text-slate-300">
           Everything you need to know about Edusathi
         </p>
       </div>
 
-      <Accordion type="single" collapsible className="space-y-4">
+      <Accordion
+        type="single"
+        collapsible
+        value={openItem}
+        onValueChange={setOpenItem}
+        className="space-y-5"
+      >
         {faqs.map((faq, index) => (
           <AccordionItem
             key={index}
             value={`item-${index}`}
-            className="border border-slate-200 dark:border-slate-700 rounded-2xl px-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm"
+            onMouseEnter={() => setOpenItem(`item-${index}`)}
+            onMouseLeave={() => setOpenItem(undefined)}
+            className="border-2 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-2xl px-6 py-1.5 md:py-2 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm transition-colors"
           >
-            <AccordionTrigger className="text-left font-semibold hover:no-underline text-slate-900 dark:text-slate-100">
+            <AccordionTrigger className="text-left font-semibold hover:no-underline text-slate-900 dark:text-slate-100 text-base md:text-lg leading-snug py-2 cursor-pointer">
               {faq.q}
             </AccordionTrigger>
-            <AccordionContent className="text-slate-600 dark:text-slate-300 pb-4">
+            <AccordionContent className="text-slate-600 dark:text-slate-300 pb-5 text-sm md:text-base leading-relaxed">
               {faq.a}
             </AccordionContent>
           </AccordionItem>

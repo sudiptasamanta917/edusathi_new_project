@@ -4,8 +4,8 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/create-order', createPaymentOrder);
-router.post('/verify', verifyPayment);
+router.post('/create-order', authenticateToken, requireRole(['business']), createPaymentOrder);
+router.post('/verify', authenticateToken, requireRole(['business']), verifyPayment);
 router.get('/config', getPaymentConfig);
 router.get('/purchases/my', authenticateToken, requireRole(['business']), getMyBusinessPurchases);
 

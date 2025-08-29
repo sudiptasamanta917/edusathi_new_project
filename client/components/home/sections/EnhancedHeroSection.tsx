@@ -6,12 +6,7 @@ import {
   Play,
   ArrowRight,
   Star,
-  Shield,
-  Brain,
   Users,
-  BarChart3,
-  Zap,
-  Award,
   Globe,
   Clock,
   TrendingUp,
@@ -25,22 +20,19 @@ export default function EnhancedHeroSection() {
   const [displayText, setDisplayText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
 
-  // Enhanced floating elements with more variety
-  const floatingElements = [
-    { icon: <Brain className="w-5 h-5" />, text: "AI-Powered Learning", delay: 0, position: "top-1/4 left-1/4" },
-    { icon: <Users className="w-5 h-5" />, text: "Smart Management", delay: 1, position: "top-1/3 right-1/4" },
-    { icon: <BarChart3 className="w-5 h-5" />, text: "Advanced Analytics", delay: 2, position: "bottom-1/3 left-1/5" },
-    { icon: <Shield className="w-5 h-5" />, text: "Secure Platform", delay: 3, position: "bottom-1/4 right-1/3" },
-    { icon: <Zap className="w-5 h-5" />, text: "Lightning Fast", delay: 4, position: "top-1/2 left-1/6" },
-    { icon: <Award className="w-5 h-5" />, text: "Certified Quality", delay: 5, position: "top-2/3 right-1/5" },
-  ];
-
   // Three main texts for rotation
   const mainTexts = [
     "All Boards.",
     "All Subjects.",
     "All Students."
   ];
+
+  // Reserve width to avoid layout shift while typing
+  const longestTextLength = Math.max(...mainTexts.map(t => t.length));
+
+  // Typing configuration
+  const TYPING_INTERVAL_MS = 150; // slightly slower typing
+  const PHRASE_HOLD_MS = 2000; // time to hold full phrase before switching
 
   useEffect(() => {
     const currentText = mainTexts[activeIndex];
@@ -56,12 +48,12 @@ export default function EnhancedHeroSection() {
         clearInterval(typingInterval);
         setIsTyping(false);
 
-        // Wait for 2 seconds before changing to next text
+        // Wait before changing to next text
         setTimeout(() => {
           setActiveIndex((prev) => (prev + 1) % mainTexts.length);
-        }, 2000);
+        }, PHRASE_HOLD_MS);
       }
-    }, 100); // Typing speed
+    }, TYPING_INTERVAL_MS); // Typing speed
 
     return () => clearInterval(typingInterval);
   }, [activeIndex]);
@@ -97,28 +89,7 @@ export default function EnhancedHeroSection() {
         <div className="absolute inset-0 bg-grid-slate-100 dark:bg-grid-slate-800 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] opacity-20"></div>
       </div>
 
-      {/* Enhanced Floating Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {floatingElements.map((element, index) => (
-          <div
-            key={index}
-            className={`absolute ${element.position} opacity-30 dark:opacity-50`}
-            style={{
-              animationDelay: `${element.delay}s`,
-              animation: `float 8s ease-in-out infinite`,
-            }}
-          >
-            <div className="flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl shadow-lg border border-white/50 dark:border-slate-700/50">
-              <div className="text-blue-600 dark:text-blue-400">
-                {element.icon}
-              </div>
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                {element.text}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Floating elements were removed */}
 
       {/* Main Content */}
       <section className="container max-w-7xl mx-auto px-4 py-16 sm:py-20 md:py-24 lg:py-32 text-center relative z-10">
@@ -144,11 +115,16 @@ export default function EnhancedHeroSection() {
             <span className="block bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 dark:from-slate-100 dark:via-blue-100 dark:to-slate-100 bg-clip-text text-transparent mb-4">
               We Provide
               Quality Classes  <br />
-              for 
-               {displayText}
-              {isTyping && (
-                <span className="absolute -right-2 animate-pulse text-current">|</span>
-              )}
+              for{' '}
+              <span
+                className="relative inline-block whitespace-nowrap text-left text-emerald-600 dark:text-emerald-400"
+                style={{ minWidth: `${longestTextLength}ch` }}
+              >
+                {displayText}
+                {isTyping && (
+                  <span className="ml-1 animate-pulse text-current">|</span>
+                )}
+              </span>
             </span>
             <span className="font-bold relative">
              
@@ -169,10 +145,13 @@ export default function EnhancedHeroSection() {
             </span>{" "}
             to revolutionize education and drive your institution towards excellence with our comprehensive platform for{" "}
             <span className="inline-block min-w-[200px] text-left">
-              <span className="font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent relative">
+              <span
+                className="font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent relative inline-block whitespace-nowrap"
+                style={{ minWidth: `${longestTextLength}ch` }}
+              >
                 {displayText}
                 {isTyping && (
-                  <span className="absolute -right-1 animate-pulse text-emerald-600">|</span>
+                  <span className="ml-1 animate-pulse text-emerald-600">|</span>
                 )}
               </span>
             </span>

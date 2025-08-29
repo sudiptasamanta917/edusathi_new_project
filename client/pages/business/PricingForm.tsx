@@ -204,16 +204,46 @@ export default function PricingForm() {
               });
               // Mark user as authenticated so ProtectedRoute allows access
               localStorage.setItem("isLoggedIn", "true");
-              // Mark that a plan has been purchased so Admin page triggers countdown redirect
+              // Mark that a plan has been purchased
               localStorage.setItem("planPurchased", "true");
-              // Persist identifiers so BusinessDashboard can fetch subscription if profile email is absent
-              localStorage.setItem("businessEmail", formData.email);
-              localStorage.setItem("businessDomain", formData.domainName);
-              // Optionally, delay slightly to show toast before redirect
+              // Persist identifiers (normalized) for immediate lookup by BusinessDashboard
+              const normEmail = (formData.email || "").toLowerCase().trim();
+              const normDomain = (formData.domainName || "").toLowerCase().trim();
+              localStorage.setItem("businessEmail", normEmail);
+              localStorage.setItem("businessDomain", normDomain);
+              // Ensure ProtectedRoute passes immediately even if AuthContext hasn't populated yet
+              localStorage.setItem("edusathi_logged_in", "true");
+              localStorage.setItem(
+                "edusathi_user",
+                JSON.stringify({
+                  name: formData.ownerName || formData.brandName || "Business User",
+                  email: formData.email,
+                  role: "business",
+                })
+              );
+              // Provide a minimal user profile so BusinessDashboard can read profile.email if needed
+              try {
+                const minimalUser = JSON.stringify({
+                  name: formData.ownerName || formData.brandName || "Business User",
+                  email: formData.email,
+                  role: "business",
+                });
+                if (!localStorage.getItem("user")) localStorage.setItem("user", minimalUser);
+                if (!localStorage.getItem("userProfile")) localStorage.setItem("userProfile", minimalUser);
+              } catch (_) {}
+              // Brief delay to let the toast render, then go to Admin page.
+              // Admin page will auto-redirect to /business/templates after countdown.
               setTimeout(() => {
-                // Go to Admin page first; it will auto-redirect to /business/templates after 10s
-                navigate("/admin");
-              }, 800);
+                navigate("/admin", { replace: true });
+                // Fallback: if SPA navigation doesn't apply within 2s, hard redirect.
+                setTimeout(() => {
+                  try {
+                    if (typeof window !== "undefined" && window.location.pathname !== "/admin") {
+                      window.location.assign("/admin");
+                    }
+                  } catch (_) {}
+                }, 2000);
+              }, 600);
             } else {
               toast({
                 title: "Payment Verification Failed",
@@ -289,20 +319,7 @@ export default function PricingForm() {
       sidebarFooter={<Button className="w-full" size="sm" variant="destructive" onClick={logout}>Logout</Button>}
     >
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      {/* <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
-        <div className="container max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-              <GraduationCap className="h-5 w-5" />
-            </div>
-            <span className="text-2xl font-bold text-slate-900">Edusathi</span>
-          </Link>
-          <Badge variant="outline" className="text-blue-600 border-blue-600">
-            Step {currentStep} of {totalSteps}
-          </Badge>
-        </div>
-      </header> */}
+     
 
         <div className="container max-w-4xl mx-auto px-4 py-12">
         {/* Progress Bar */}

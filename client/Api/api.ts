@@ -78,7 +78,44 @@ async function request<T>(path: string, init: RequestInit, retry = true): Promis
     }
   }
   if (!res.ok) throw new Error(await res.text());
-  return res.json();
+
+  // Parse once
+  const data = await res.json();
+
+  // On successful login/register, clear any stale data so the next UI state is clean
+  const method = (init?.method || 'GET').toUpperCase();
+  const isAuthMutation = method === 'POST' && (
+    path.startsWith('/api/auth/login') || path.startsWith('/api/auth/register')
+  );
+  if (isAuthMutation) {
+    for (const storage of [localStorage, sessionStorage]) {
+      storage.removeItem("access_token");
+      storage.removeItem("refresh_token");
+      storage.removeItem("accessToken");
+      storage.removeItem("refreshToken");
+      storage.removeItem("user");
+      storage.removeItem("userProfile");
+      storage.removeItem("isLoggedIn");
+      storage.removeItem("userRole");
+      // Admin notifications cache should not leak to non-admin/new users
+      storage.removeItem('adminNotifications.lastSeenPurchaseAt');
+      storage.removeItem('adminNotifications.clearedAt');
+      storage.removeItem('adminNotifications.lastSeenTemplateAt');
+      storage.removeItem('adminNotifications.templates.clearedAt');
+      // Demo/basic login artifacts
+      storage.removeItem('userEmail');
+      // Business-specific
+      storage.removeItem('planPurchased');
+      storage.removeItem('businessTemplate');
+      storage.removeItem('businessAvatarUrl');
+      storage.removeItem('businessEmail');
+      storage.removeItem('businessDomain');
+      // Student-specific
+      storage.removeItem('studentAvatarUrl');
+    }
+  }
+
+  return data as T;
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
@@ -136,6 +173,7 @@ export const PaymentAPI = {
   createOrder: (order: any) => apiPost<any>("/api/payment/create-order", order),
   getConfig: () => apiGet<any>("/api/payment/config"),
   verify: (payload: any) => apiPost<any>("/api/payment/verify", payload),
+  myPurchases: () => apiGet<any>("/api/payment/purchases/my"),
 };
 
 // Templates
@@ -157,4 +195,11 @@ export const AuthAPI = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
+};
+
+// Admin
+export const AdminAPI = {
+  roleStats: () => apiGet<any>("/api/admin/role-stats"),
+  recentPurchases: (limit: number = 10) => apiGet<any>(`/api/admin/recent-purchases?limit=${encodeURIComponent(limit)}`),
+  recentTemplateSelections: (limit: number = 10) => apiGet<any>(`/api/admin/recent-template-selections?limit=${encodeURIComponent(limit)}`),
 };

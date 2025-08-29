@@ -23,7 +23,7 @@ export default function FinalCTA() {
             <Button
               variant="outline"
               size="lg"
-              className="border-white text-white hover:bg-white hover:text-blue-600 dark:hover:text-blue-700 px-8"
+              className="border-white text-blue-600 hover:bg-white hover:text-blue-600 dark:hover:text-blue-700 px-8"
             >
               Schedule Demo
             </Button>

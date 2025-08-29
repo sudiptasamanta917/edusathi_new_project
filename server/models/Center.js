@@ -5,8 +5,8 @@ const { Schema } = mongoose;
 const CenterSchema = new Schema({
   instituteName: { type: String, required: true },
   ownerName: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  domain: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  domain: { type: String, required: true, unique: true, lowercase: true, trim: true },
   plan: { type: String, required: true },
   razorpay_order_id: { type: String, required: true },
   razorpay_payment_id: { type: String, required: true },

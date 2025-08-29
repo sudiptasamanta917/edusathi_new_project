@@ -87,21 +87,16 @@ export default function Features() {
               className="group animate-in fade-in slide-in-from-bottom-8 duration-700"
               style={{ animationDelay: `${index * 150}ms` }}
             >
-              <Card className="relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl dark:shadow-slate-900/50 dark:hover:shadow-slate-900/70 transition-all duration-500 h-full bg-white dark:bg-slate-800 group-hover:scale-105 interactive">
-                {/* Gradient Background */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${feature.bgGradient} dark:from-slate-700/50 dark:to-slate-600/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
-                
-                {/* Animated Border */}
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                
+              <Card className="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl dark:hover:shadow-slate-900/60 transition-all duration-300 h-full bg-white dark:bg-slate-800 hover:scale-[1.02] hover:-translate-y-1 interactive cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-300 dark:focus-visible:ring-slate-600">
+                {/* Accent bar */}
+                <div className={`absolute inset-x-0 top-0 h-1 bg-${feature.color}-500/70`}></div>
+
                 <CardHeader className="relative z-10 pb-4">
                   {/* Enhanced Icon Container */}
-                  <div className={`mb-6 relative inline-flex p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 group-hover:from-white group-hover:to-slate-50 dark:group-hover:from-slate-600 dark:group-hover:to-slate-500 transition-all duration-500 shadow-md group-hover:shadow-lg`}>
+                  <div className={`mb-6 relative inline-flex p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 transition-all duration-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600`}>
                     <div className={`text-${feature.color}-500 dark:text-${feature.color}-400 group-hover:scale-110 transition-transform duration-500`}>
                       {feature.icon}
                     </div>
-                    {/* Glow Effect */}
-                    <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${feature.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-500 blur-sm`}></div>
                   </div>
                   
                   {/* Enhanced Title */}
@@ -109,6 +104,8 @@ export default function Features() {
                     {feature.title}
                   </CardTitle>
                 </CardHeader>
+                {/* Divider */}
+                <div className="h-px w-full bg-slate-100 dark:bg-slate-700"></div>
                 
                 <CardContent className="relative z-10">
                   <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300">
@@ -122,9 +119,7 @@ export default function Features() {
                   </div>
                 </CardContent>
 
-                {/* Decorative Elements */}
-                <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-white/20 to-white/5 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-gradient-to-tl from-slate-100/40 to-transparent rounded-full blur-sm"></div>
+                {/* Decorative light effects removed */}
               </Card>
             </div>
           ))}

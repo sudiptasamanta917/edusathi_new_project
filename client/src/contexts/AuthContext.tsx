@@ -56,9 +56,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.getItem('userProfile');
         
         if (token && savedUser) {
-          setUser(JSON.parse(savedUser));
-          // Optionally verify token with backend
-          await authAPI.getProfile();
+          const parsed = JSON.parse(savedUser);
+          setUser(parsed);
+          // Verify token with backend and sync the freshest user into the storage that holds the token
+          try {
+            const res = await authAPI.getProfile();
+            const serverUser = res?.data?.user || parsed;
+            // Decide which storage currently owns the session (token source)
+            const owningStorage =
+              (sessionStorage.getItem('access_token') || sessionStorage.getItem('accessToken'))
+                ? sessionStorage
+                : localStorage;
+            owningStorage.setItem('user', JSON.stringify(serverUser));
+            owningStorage.setItem('userProfile', JSON.stringify(serverUser));
+            if (serverUser?.role) owningStorage.setItem('userRole', serverUser.role);
+            setUser(serverUser);
+          } catch {
+            // If profile fetch fails we fall back to parsed saved user; interceptor may handle refresh
+          }
         }
       } catch (error) {
         // Token invalid, clear both storages
@@ -193,7 +208,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const res = await authAPI.getProfile();
       const userData = res.data?.user;
       if (userData) {
-        localStorage.setItem('user', JSON.stringify(userData));
+        // Write to the storage that currently holds the token
+        const owningStorage =
+          (sessionStorage.getItem('access_token') || sessionStorage.getItem('accessToken'))
+            ? sessionStorage
+            : localStorage;
+        owningStorage.setItem('user', JSON.stringify(userData));
+        owningStorage.setItem('userProfile', JSON.stringify(userData));
+        if (userData?.role) owningStorage.setItem('userRole', userData.role);
         setUser(userData);
       }
     } catch (_e) {

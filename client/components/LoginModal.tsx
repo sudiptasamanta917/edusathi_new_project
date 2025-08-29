@@ -23,8 +23,8 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
 
   // Static login credentials
   const staticCredentials = {
-    email: 'admin@edusathi.com',
-    password: 'edusathi2025'
+    email: import.meta.env.VITE_ADMIN_EMAIL,
+    password: import.meta.env.VITE_ADMIN_PASSWORD
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -52,7 +52,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
       } else {
         toast({
           title: 'Login Failed',
-          description: 'Invalid email or password. Try admin@edusathi.com / edusathi2025',
+          description: 'Invalid email or password. Try',
           variant: 'destructive',
         });
       }

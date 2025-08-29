@@ -12,7 +12,7 @@ import InstituteLanding from "@/components/templates/InstituteLanding";
 import SplitLanding from "@/components/templates/SplitLanding";
 import MinimalSpotlightLanding from "@/components/templates/MinimalSpotlightLanding";
 import FeatureFirstLanding from "@/components/templates/FeatureFirstLanding";
-import { CentersAPI, TemplatesAPI } from "@/Api/api";
+import { CentersAPI, TemplatesAPI, PaymentAPI } from "@/Api/api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function BusinessDashboard() {
@@ -27,11 +27,15 @@ export default function BusinessDashboard() {
     status?: string;
     subscriptionStartAt?: string | null;
     expiresAt?: string | null;
+    instituteName?: string | null;
   } | null>(null);
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [billingLoading, setBillingLoading] = useState<boolean>(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(() => localStorage.getItem("businessTemplate") || null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,17 +57,92 @@ export default function BusinessDashboard() {
     setPlanPurchased(false);
   }, []);
 
-  // Fetch subscription details for current business by email
-  const refreshSubscription = () => {
-    const storedEmail = localStorage.getItem("businessEmail") || sessionStorage.getItem("businessEmail") || undefined;
-    const storedDomain = localStorage.getItem("businessDomain") || sessionStorage.getItem("businessDomain") || undefined;
-    const email = profile?.email || storedEmail;
-    const domain = storedDomain;
+  // Preload per-email applied template for instant UI after login (before server lookup completes)
+  useEffect(() => {
+    try {
+      const persistedUser = (() => {
+        try {
+          const u =
+            sessionStorage.getItem("userProfile") ||
+            localStorage.getItem("userProfile") ||
+            sessionStorage.getItem("user") ||
+            localStorage.getItem("user");
+          return u ? JSON.parse(u) : null;
+        } catch (_) {
+          return null;
+        }
+      })();
+      const email =
+        profile?.email ||
+        localStorage.getItem("businessEmail") ||
+        persistedUser?.email ||
+        undefined;
+      const normEmail = typeof email === 'string' ? email.toLowerCase().trim() : undefined;
+      const mapRaw = localStorage.getItem('businessTemplatesByEmail');
+      if (normEmail && mapRaw) {
+        const map = JSON.parse(mapRaw || '{}') || {};
+        const t = map[normEmail];
+        if (t && typeof t === 'string') {
+          setSelectedTemplate(t);
+        }
+      }
+    } catch {}
+  }, [profile?.email]);
 
-    if (!email && !domain) {
-      setSubscription(null);
-      setPlanPurchased(false);
-      setSubError("No identifier found. Please purchase a plan or log in.");
+  // Preload applied template from localStorage so UI shows Applied on revisit and preview uses it
+  useEffect(() => {
+    const t = localStorage.getItem("businessTemplate");
+    if (t) setSelectedTemplate(t);
+  }, []);
+
+  // Cross-page notification (business scope): show toast if a template was applied earlier
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('notify.business.templateApplied');
+      if (raw) {
+        const parsed = JSON.parse(raw || '{}');
+        const id = parsed?.id;
+        toast({
+          title: 'Template applied',
+          description: id ? `Your website is now using ${String(id).toUpperCase()}.` : 'Your website template was applied successfully.',
+        });
+        localStorage.removeItem('notify.business.templateApplied');
+      }
+    } catch {
+      localStorage.removeItem('notify.business.templateApplied');
+    }
+  }, [location.pathname]);
+
+  // Fetch subscription details for current business using best-available identifiers
+  const refreshSubscription = () => {
+    // Prefer authenticated profile email; fallback to values persisted by PricingForm
+    const persistedUser = (() => {
+      try {
+        const u =
+          sessionStorage.getItem("userProfile") ||
+          localStorage.getItem("userProfile") ||
+          sessionStorage.getItem("user") ||
+          localStorage.getItem("user");
+        return u ? JSON.parse(u) : null;
+      } catch (_) {
+        return null;
+      }
+    })();
+    const email =
+      profile?.email ||
+      localStorage.getItem("businessEmail") ||
+      persistedUser?.email ||
+      undefined;
+    const domain = localStorage.getItem("businessDomain") || undefined;
+
+    // Normalize to avoid case/whitespace mismatches
+    const normEmail = typeof email === "string" ? email.toLowerCase().trim() : undefined;
+    const normDomain = typeof domain === "string" ? domain.toLowerCase().trim() : undefined;
+    if (normEmail && normEmail !== email) localStorage.setItem("businessEmail", normEmail);
+    if (normDomain && normDomain !== domain) localStorage.setItem("businessDomain", normDomain);
+
+    if (!normEmail && !normDomain) {
+      // No identifiers yet (likely right after login). Skip without error; effects will retry later.
       return;
     }
     setSubError(null);
@@ -72,15 +151,19 @@ export default function BusinessDashboard() {
     (async () => {
       try {
         let data: any | null = null;
-        if (email) {
+        if (normEmail) {
           try {
-            data = await CentersAPI.lookupByEmail(email);
+            data = await CentersAPI.lookupByEmail(normEmail);
           } catch (_e) {
             data = null;
           }
         }
-        if (!data && domain) {
-          data = await CentersAPI.lookupByDomain(domain);
+        if (!data && normDomain) {
+          try {
+            data = await CentersAPI.lookupByDomain(normDomain);
+          } catch (_e) {
+            data = null;
+          }
         }
         if (!data) throw new Error("lookup failed");
 
@@ -89,26 +172,106 @@ export default function BusinessDashboard() {
           status: data?.status,
           subscriptionStartAt: data?.subscriptionStartAt || null,
           expiresAt: data?.expiresAt || null,
+          instituteName: data?.instituteName || null,
         });
         // Derive planPurchased from server data to avoid stale localStorage
         setPlanPurchased(!!(data?.status === "active" || data?.plan));
-        // Sync selected template from server if available
+        // Sync selected template from server if available; if not yet available, keep current optimistic selection
         if (data?.templateId) {
           setSelectedTemplate(data.templateId);
           localStorage.setItem("businessTemplate", data.templateId);
+          // Also persist per-email mapping for instant UI on next login
+          try {
+            if (normEmail) {
+              const mapRaw = localStorage.getItem('businessTemplatesByEmail');
+              const map = mapRaw ? JSON.parse(mapRaw) : {};
+              map[normEmail] = data.templateId;
+              localStorage.setItem('businessTemplatesByEmail', JSON.stringify(map));
+            }
+          } catch {}
+        }
+        if (data?.instituteName) {
+          localStorage.setItem("businessInstituteName", data.instituteName);
+        } else {
+          localStorage.removeItem("businessInstituteName");
         }
       } catch {
+        // Fallback: try to derive identifiers from billing purchases and retry once
+        try {
+          const resp: any = await PaymentAPI.myPurchases();
+          const list: any[] = Array.isArray(resp?.purchases) ? resp.purchases : [];
+          const paid = list.find((p) => p.status === 'paid') || list[0];
+          const derivedEmail = typeof paid?.email === 'string' ? paid.email.toLowerCase().trim() : undefined;
+          const derivedDomain = typeof paid?.domain === 'string' ? paid.domain.toLowerCase().trim() : undefined;
+          if (derivedEmail) localStorage.setItem('businessEmail', derivedEmail);
+          if (derivedDomain) localStorage.setItem('businessDomain', derivedDomain);
+          let retry: any = null;
+          if (derivedEmail) {
+            try { retry = await CentersAPI.lookupByEmail(derivedEmail); } catch { retry = null; }
+          }
+          if (!retry && derivedDomain) {
+            try { retry = await CentersAPI.lookupByDomain(derivedDomain); } catch { retry = null; }
+          }
+          if (retry) {
+            setSubscription({
+              plan: retry?.plan,
+              status: retry?.status,
+              subscriptionStartAt: retry?.subscriptionStartAt || null,
+              expiresAt: retry?.expiresAt || null,
+              instituteName: retry?.instituteName || null,
+            });
+            setPlanPurchased(!!(retry?.status === 'active' || retry?.plan));
+            if (retry?.templateId) {
+              setSelectedTemplate(retry.templateId);
+              localStorage.setItem('businessTemplate', retry.templateId);
+              try {
+                if (normEmail) {
+                  const mapRaw = localStorage.getItem('businessTemplatesByEmail');
+                  const map = mapRaw ? JSON.parse(mapRaw) : {};
+                  map[normEmail] = retry.templateId;
+                  localStorage.setItem('businessTemplatesByEmail', JSON.stringify(map));
+                }
+              } catch {}
+            }
+            if (retry?.instituteName) {
+              localStorage.setItem('businessInstituteName', retry.instituteName);
+            } else {
+              localStorage.removeItem('businessInstituteName');
+            }
+            return; // success via fallback
+          }
+        } catch {}
         setSubscription(null);
         setPlanPurchased(false);
         setSubError("No active subscription found.");
+        // Do not clear template selection here to avoid flicker after immediate apply
       } finally {
         setSubLoading(false);
       }
     })();
   };
 
+  // Fetch billing history for authenticated business
+  const refreshBilling = () => {
+    setBillingError(null);
+    setBillingLoading(true);
+    (async () => {
+      try {
+        const data: any = await PaymentAPI.myPurchases();
+        const list = Array.isArray(data?.purchases) ? data.purchases : [];
+        setPurchases(list);
+      } catch (e) {
+        setPurchases([]);
+        setBillingError("Could not load billing history.");
+      } finally {
+        setBillingLoading(false);
+      }
+    })();
+  };
+
   useEffect(() => {
     refreshSubscription();
+    refreshBilling();
   }, [profile?.email]);
 
   // Also refresh subscription when navigating to relevant pages
@@ -120,6 +283,7 @@ export default function BusinessDashboard() {
       p.startsWith("/business/subscription-details")
     ) {
       refreshSubscription();
+      refreshBilling();
     }
   }, [location.pathname, profile?.email]);
 
@@ -127,6 +291,7 @@ export default function BusinessDashboard() {
   useEffect(() => {
     const onFocus = () => {
       refreshSubscription();
+      refreshBilling();
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -165,22 +330,65 @@ export default function BusinessDashboard() {
   }
 
   const chooseTemplate = (id: string) => {
-    localStorage.setItem("businessTemplate", id);
+    // Set in-memory for preview. Applying will persist via API.
+    setSelectedTemplate(id);
     navigate("/business/website");
   };
 
   const applyTemplate = async (id: string) => {
-    if (!profile?.email) {
-      toast({ title: "Not logged in", description: "Please re-login to apply template.", variant: "destructive" });
-      return;
-    }
     try {
       setApplyingId(id);
       // Secure, JWT-authenticated endpoint updates Center by current user and stores selection history
-      await TemplatesAPI.apply(id);
+      const resp: any = await TemplatesAPI.apply(id);
       localStorage.setItem("businessTemplate", id);
       setSelectedTemplate(id);
-      toast({ title: "Template applied", description: `Your website will use ${id.toUpperCase()}.` });
+      // Signal dashboard to show a notification toast on next visit
+      try {
+        // Admin/global dashboard notification
+        localStorage.setItem(
+          "notify.dashboard.templateApplied",
+          JSON.stringify({ id, ts: Date.now() })
+        );
+        // Business dashboard-specific notification so we don't consume the admin one
+        localStorage.setItem(
+          "notify.business.templateApplied",
+          JSON.stringify({ id, ts: Date.now() })
+        );
+      } catch {}
+      // Persist per-email mapping so next login preloads instantly
+      try {
+        const persistedUser = (() => {
+          try {
+            const u =
+              sessionStorage.getItem("userProfile") ||
+              localStorage.getItem("userProfile") ||
+              sessionStorage.getItem("user") ||
+              localStorage.getItem("user");
+            return u ? JSON.parse(u) : null;
+          } catch (_) {
+            return null;
+          }
+        })();
+        const email =
+          profile?.email ||
+          localStorage.getItem("businessEmail") ||
+          persistedUser?.email ||
+          undefined;
+        const normEmail = typeof email === 'string' ? email.toLowerCase().trim() : undefined;
+        if (normEmail) {
+          const mapRaw = localStorage.getItem('businessTemplatesByEmail');
+          const map = mapRaw ? JSON.parse(mapRaw) : {};
+          map[normEmail] = id;
+          localStorage.setItem('businessTemplatesByEmail', JSON.stringify(map));
+        }
+      } catch {}
+      if (resp?.alreadyApplied) {
+        toast({ title: "Already applied", description: `You're already using ${id.toUpperCase()}.` });
+      } else {
+        toast({ title: "Template applied", description: `Your website will use ${id.toUpperCase()}.` });
+      }
+      // Refresh subscription to sync any Center data updates (e.g., instituteName)
+      refreshSubscription();
     } catch (e: any) {
       const msg = typeof e?.message === "string" ? e.message : "Failed to apply template";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -244,8 +452,12 @@ export default function BusinessDashboard() {
                   <div className="flex justify-end gap-3">
                     <Button
                       onClick={() => applyTemplate(`t${n}`)}
-                      disabled={applyingId === `t${n}` || !planPurchased}
-                      title={!planPurchased ? 'Purchase a plan to apply this template' : undefined}
+                      disabled={applyingId === `t${n}` || !planPurchased || selectedTemplate === `t${n}`}
+                      title={
+                        selectedTemplate === `t${n}`
+                          ? 'This template is already applied'
+                          : (!planPurchased ? 'Purchase a plan to apply this template' : undefined)
+                      }
                     >
                       {selectedTemplate === `t${n}` ? "Applied" : "Apply"}
                     </Button>
@@ -269,11 +481,12 @@ export default function BusinessDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {(() => {
-                  const t = localStorage.getItem("businessTemplate") || "t1";
-                  if (t === "t1") return <InstituteLanding brandName={profile?.name || "Your Institute"} />;
-                  if (t === "t2") return <SplitLanding brandName={profile?.name || "Your Institute"} />;
-                  if (t === "t3") return <MinimalSpotlightLanding brandName={profile?.name || "Your Institute"} />;
-                  return <FeatureFirstLanding brandName={profile?.name || "Your Institute"} />;
+                  const t = selectedTemplate || "t1";
+                  const brand = subscription?.instituteName || localStorage.getItem("businessInstituteName") || profile?.name || "Your Institute";
+                  if (t === "t1") return <InstituteLanding brandName={brand} />;
+                  if (t === "t2") return <SplitLanding brandName={brand} />;
+                  if (t === "t3") return <MinimalSpotlightLanding brandName={brand} />;
+                  return <FeatureFirstLanding brandName={brand} />;
                 })()}
               </CardContent>
             </Card>
@@ -343,7 +556,13 @@ export default function BusinessDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="flex justify-end mb-3">
-                  <Button size="sm" variant="outline" onClick={refreshSubscription}>Refresh</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { refreshSubscription(); refreshBilling(); }}
+                  >
+                    Refresh
+                  </Button>
                 </div>
                 {subLoading ? (
                   <p className="text-slate-700 dark:text-slate-300">Loading subscription...</p>
@@ -357,6 +576,32 @@ export default function BusinessDashboard() {
                     <p className="text-slate-700 dark:text-slate-300"><strong>Next billing:</strong> {subscription?.expiresAt ? new Date(subscription.expiresAt).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—"}</p>
                   </div>
                 )}
+                {/* Billing History */}
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Billing History</h3>
+                  {billingLoading ? (
+                    <p className="text-slate-700 dark:text-slate-300">Loading billing history...</p>
+                  ) : billingError ? (
+                    <p className="text-slate-700 dark:text-slate-300">{billingError}</p>
+                  ) : purchases.length === 0 ? (
+                    <p className="text-slate-700 dark:text-slate-300">No purchases yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {purchases.map((p) => (
+                        <div key={p._id} className="flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-700 p-3">
+                          <div className="flex flex-col">
+                            <span className="text-slate-900 dark:text-slate-100 text-sm">{new Date(p.createdAt).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
+                            <span className="text-slate-600 dark:text-slate-400 text-xs">{p.plan || '-'} · {p.domain || ''}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-slate-900 dark:text-slate-100 text-sm">{p.currency || 'INR'} {Number(p.amount || 0) / 100}</div>
+                            <div className="text-slate-600 dark:text-slate-400 text-xs">{(p.status || '—').toString()}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

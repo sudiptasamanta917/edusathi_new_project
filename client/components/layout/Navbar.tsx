@@ -19,7 +19,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <header className={`sticky top-0 z-50 border-b transition-all duration-300 ${
+    <header className={`fixed top-0 left-0 right-0 z-50 border-b transition-all duration-300 ${
       scrolled 
         ? 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-lg border-slate-200/50 dark:border-slate-700/50' 
         : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-sm border-slate-200/30 dark:border-slate-700/30'

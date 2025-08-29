@@ -18,8 +18,8 @@ export default function DashboardLogin() {
 
   // Static login credentials from environment variables
   const staticCredentials = {
-    email: import.meta.env.VITE_ADMIN_EMAIL || 'admin@edusathi.com',
-    password: import.meta.env.VITE_ADMIN_PASSWORD || 'edusathi2025'
+    email: import.meta.env.VITE_ADMIN_EMAIL,
+    password: import.meta.env.VITE_ADMIN_PASSWORD 
   };
 
   const handleLogin = async (e: React.FormEvent) => {

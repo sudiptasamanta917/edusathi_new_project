@@ -23,8 +23,8 @@ export default function Index() {
       <div className="relative z-10 [&_.container]:px-2 sm:[&_.container]:px-3">
         <Navbar />
         
-        <main className="pt-24 sm:pt-28 [&_section]:py-14 sm:[&_section]:py-16">
-          <EnhancedHeroSection />
+        <main className=" ">
+          <EnhancedHeroSection/>
           <ValueProposition />
           <Features />
           <Stats />

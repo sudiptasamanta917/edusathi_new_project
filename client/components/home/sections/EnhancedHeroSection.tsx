@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+// import publicPath from '@/public';
 import {
   Sparkles,
   Play,
@@ -14,11 +15,26 @@ import {
   Lightbulb,
   Target
 } from 'lucide-react';
+import { useInterval } from 'usehooks-ts';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 
 export default function EnhancedHeroSection() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [displayText, setDisplayText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const bgImages = [
+  '/classroom1.avif',
+  '/class5.avif',
+  '/class10.avif',
+  '/class11.avif',
+  '/class9.avif',
+  ];
+
+  useInterval(() => {
+    setCurrentBgIndex((prev) => (prev + 1) % bgImages.length);
+  }, 5000);
 
   // Three main texts for rotation
   const mainTexts = [
@@ -75,27 +91,28 @@ export default function EnhancedHeroSection() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 dark:from-slate-900 dark:via-slate-800/30 dark:to-slate-900/50">
-      {/* Enhanced Background Effects */}
-      <div className="absolute inset-0">
-        {/* Animated gradient mesh */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-indigo-500/10 dark:from-blue-400/20 dark:via-purple-400/10 dark:to-indigo-400/20 animate-pulse"></div>
-
-        {/* Floating orbs with better positioning */}
-        <div className="absolute top-20 left-10 w-96 h-96 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl animate-float opacity-60"></div>
-        <div className="absolute bottom-20 right-10 w-80 h-80 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-float opacity-60" style={{ animationDelay: "2s" }}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-gradient-to-r from-indigo-400/20 to-blue-400/20 rounded-full blur-3xl animate-float opacity-60" style={{ animationDelay: "4s" }}></div>
-
-        {/* Grid pattern overlay */}
-        <div className="absolute inset-0 bg-grid-slate-100 dark:bg-grid-slate-800 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] opacity-20"></div>
-      </div>
-
-      {/* Floating elements were removed */}
 
       {/* Main Content */}
-      <section className="container max-w-7xl mx-auto px-4 py-16 sm:py-20 md:py-24 lg:py-32 text-center relative z-10">
+      <section className="container max-w-7xl mx-auto px-4 py-16 sm:py-20 md:py-24 lg:py-32 text-center relative">
+        <div className="absolute inset-0 overflow-hidden">
+          {bgImages.map((image, index) => (
+            <div 
+              key={index}
+              className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ${index === currentBgIndex ? 'opacity-100' : 'opacity-0'}`}
+              style={{
+                backgroundImage: `url(${image})`,
+                backgroundPosition: 'center center',
+                backgroundSize: 'cover',
+                backgroundRepeat: 'no-repeat',
+                filter: 'brightness(0.8)'
+              }}
+            />
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-50/60 to-indigo-50/30 dark:from-slate-900/60 dark:to-slate-900/30" />
+        </div>
 
         {/* Enhanced Trust Badge */}
-        <div className="animate-in fade-in duration-700 delay-100 mb-8">
+        <div className="animate-in fade-in duration-700 delay-100 mt-10 mb-8">
           <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-indigo-500/10 dark:from-blue-400/20 dark:via-purple-400/20 dark:to-indigo-400/20 border border-blue-200/50 dark:border-blue-700/50 backdrop-blur-md shadow-lg">
             <div className="flex items-center gap-1">
               {[...Array(5)].map((_, i) => (
@@ -110,9 +127,9 @@ export default function EnhancedHeroSection() {
         </div>
 
         {/* Enhanced Main Heading */}
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 mb-8">
+        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 ">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
-            <span className="block bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 dark:from-slate-100 dark:via-blue-100 dark:to-slate-100 bg-clip-text text-transparent mb-4">
+            <span className="block bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 dark:from-slate-100 dark:via-blue-100 dark:to-slate-100 bg-clip-text text-transparent ">
               We Provide
               Quality Classes  <br />
               for{' '}
@@ -204,50 +221,7 @@ export default function EnhancedHeroSection() {
             </Button>
           </div>
         </div>
-
-        {/* Enhanced Stats Section */}
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-700">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            {stats.map((stat, index) => (
-              <div
-                key={index}
-                className="group p-6 rounded-3xl bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-white/50 dark:border-slate-700/50 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-2xl hover:scale-105 transition-all duration-500 cursor-default"
-              >
-                <div className="flex items-center justify-center mb-3">
-                  <div className="p-2 rounded-xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 dark:from-blue-400/30 dark:to-purple-400/30 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
-                    {stat.icon}
-                  </div>
-                </div>
-                <div className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-slate-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
-                  {stat.number}
-                </div>
-                <div className="text-sm md:text-base text-slate-600 dark:text-slate-400 font-semibold">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Enhanced Bottom CTA */}
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-900 mt-16">
-          <div className="max-w-3xl mx-auto text-center">
-            <p className="text-lg text-slate-600 dark:text-slate-400 mb-6">
-              Join thousands of educators who are already transforming education with our AI-powered platform
-            </p>
-            <div className="flex justify-center">
-              <Link to="/get-started">
-                <Button
-                  variant="ghost"
-                  className="group text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold text-lg underline decoration-2 underline-offset-4 hover:underline-offset-8 transition-all duration-300"
-                >
-                  Explore All Features
-                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
+         
       </section>
     </div>
   );

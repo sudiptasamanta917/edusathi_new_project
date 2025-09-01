@@ -38,14 +38,19 @@ jobs:
         cd server
         npm ci
 
-    - name: Deploy to EC2
+    - name: Deploy to EC2   # 👈 yaha aapka block add hoga
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
         script: |
+          # Fix PATH for Node/NPM/PM2
+          export NVM_DIR="$HOME/.nvm"
+          export PATH="$NVM_DIR/versions/node/v22.18.0/bin:$PATH"
+
           cd /var/www/edusathi
+          git reset --hard   # (to avoid merge conflict with local changes)
           git pull origin main
           
           # Update server
@@ -73,7 +78,7 @@ jobs:
           echo "NODE_ENV=production" >> .env
           
           # Restart application
-          pm2 restart edusathi-server
+          pm2 restart edusathi-server || pm2 start server.js --name edusathi-server
           
           # Restart Nginx
           sudo systemctl reload nginx

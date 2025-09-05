@@ -25,19 +25,19 @@ export default function ContactUs() {
     {
       icon: <Mail className="w-6 h-6 text-blue-500 dark:text-blue-400" />,
       title: "Email Us",
-      info: "support@edusathi.com",
+      info: "Info@edusathi.com",
       description: "Send us an email anytime",
     },
     {
       icon: <Phone className="w-6 h-6 text-green-500 dark:text-green-400" />,
       title: "Call Us",
-      info: "+91 98765 43210",
+      info: "+91 9733140877",
       description: "Mon-Fri 9AM-6PM IST",
     },
     {
       icon: <MapPin className="w-6 h-6 text-red-500 dark:text-red-400" />,
       title: "Visit Us",
-      info: "Bangalore, Karnataka, India",
+      info: "Kolkata, West Bengal, India",
       description: "Schedule an appointment",
     },
     {

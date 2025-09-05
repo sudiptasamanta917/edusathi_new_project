@@ -90,26 +90,44 @@ export default function EnhancedHeroSection() {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 dark:from-slate-900 dark:via-slate-800/30 dark:to-slate-900/50">
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Hero Section Background */}
+      <div className="absolute inset-0 -z-10">
+        {bgImages.map((image, index) => (
+          <div 
+            key={index}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              index === currentBgIndex ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{
+              backgroundImage: `url(${image})`,
+              backgroundPosition: 'center',
+              backgroundSize: 'cover',
+              backgroundRepeat: 'no-repeat',
+              filter: 'brightness(0.8)',
+              height: '100vh', // Match viewport height
+              width: '100%',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0
+            }}
+          />
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 to-slate-900/70" style={{
+          height: '100vh',
+          width: '100%',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }} />
+      </div>
 
       {/* Main Content */}
-      <section className="container max-w-7xl mx-auto px-4 py-16 sm:py-20 md:py-24 lg:py-32 text-center relative">
-        <div className="absolute inset-0 overflow-hidden">
-          {bgImages.map((image, index) => (
-            <div 
-              key={index}
-              className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ${index === currentBgIndex ? 'opacity-100' : 'opacity-0'}`}
-              style={{
-                backgroundImage: `url(${image})`,
-                backgroundPosition: 'center center',
-                backgroundSize: 'cover',
-                backgroundRepeat: 'no-repeat',
-                filter: 'brightness(0.8)'
-              }}
-            />
-          ))}
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-50/60 to-indigo-50/30 dark:from-slate-900/60 dark:to-slate-900/30" />
-        </div>
+      <section className="container max-w-7xl mx-auto px-4 py-16 sm:py-20 md:py-24 lg:py-32 text-center relative z-10">
 
         {/* Enhanced Trust Badge */}
         <div className="animate-in fade-in duration-700 delay-100 mt-10 mb-8">
@@ -119,7 +137,7 @@ export default function EnhancedHeroSection() {
                 <Star key={i} className="w-4 h-4 text-yellow-500 fill-current" />
               ))}
             </div>
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            <span className="text-sm font-semibold text-fuchsia-950 dark:text-slate-300">
               Trusted by 1000+ Educational Institutes Worldwide
             </span>
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
@@ -129,7 +147,7 @@ export default function EnhancedHeroSection() {
         {/* Enhanced Main Heading */}
         <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 ">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
-            <span className="block bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 dark:from-slate-100 dark:via-blue-100 dark:to-slate-100 bg-clip-text text-transparent ">
+            <span className="block bg-gradient-to-r from-cyan-500 via-blue-500 to-sky-400 dark:from-slate-100 dark:via-blue-100 dark:to-slate-100 bg-clip-text text-transparent ">
               We Provide
               Quality Classes  <br />
               for{' '}
@@ -155,7 +173,7 @@ export default function EnhancedHeroSection() {
 
         {/* Enhanced Description */}
         <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 mb-12">
-          <p className="text-lg sm:text-xl md:text-2xl text-slate-700 dark:text-slate-300 max-w-5xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl md:text-2xl text-white dark:text-slate-300 max-w-5xl mx-auto leading-relaxed">
             Harness the power of{" "}
             <span className="font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
               artificial intelligence

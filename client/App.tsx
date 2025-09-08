@@ -5,7 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Route, RouterProvider, createBrowserRouter, createRoutesFromElements } from "react-router-dom";
-import { ThemeProvider } from "@/src/contexts/ThemeContext";
+import { ThemeProvider } from "./src/contexts/ThemeContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/EdusathiDashboard/Dashboard";
@@ -34,6 +34,7 @@ import MyCourses from "./pages/student/MyCourses";
 import Profile from "./pages/Profile";
 import PriceManagement from "./pages/business/PriceManagement";
 import DashboardLogin from "./pages/EdusathiDashboard/DashboardLogin";
+import InvestmentLanding from "./pages/Investment/InvestmentLanding";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,8 @@ const router = createBrowserRouter(
       <Route path="/login" element={<Login />} />
       <Route path="/get-started" element={<GetStarted />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/InvestmentLanding" element={<InvestmentLanding />} />
+      
       <Route
         path="/student"
         element={

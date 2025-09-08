@@ -104,14 +104,9 @@ export default function EnhancedHeroSection() {
               backgroundPosition: 'center',
               backgroundSize: 'cover',
               backgroundRepeat: 'no-repeat',
-              filter: 'brightness(0.8)',
-              height: '100vh', // Match viewport height
-              width: '100%',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0
+              filter: 'brightness(0.7)',
+              height: '100vh',
+              width: '100%'
             }}
           />
         ))}

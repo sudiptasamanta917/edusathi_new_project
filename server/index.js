@@ -15,6 +15,7 @@ import studentRoutes from "./routes/student.routes.js";
 import pricingRoutes from "./routes/pricing.routes.js";
 import templatesRoutes from "./routes/templates.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import bookingRoutes from "./routes/booking.routes.js";
 
 export function createServer() {
   const app = express();
@@ -79,6 +80,9 @@ export function createServer() {
   
   // Admin routes
   app.use("/api/admin", adminRoutes);
+  
+  // Booking routes
+  app.use("/api", bookingRoutes);
   
   // Global error handler (handle multer and other runtime errors)
   app.use((err, _req, res, _next) => {

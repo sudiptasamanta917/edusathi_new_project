@@ -180,9 +180,9 @@ const InvestmentLanding = () => {
         <p className="mt-3 text-sm opacity-90">Showcasing Platform &amp; Insights</p>
 
         <div className="mt-4 flex items-baseline justify-center gap-3">
-          <span className="text-yellow-300 font-extrabold text-2xl sm:text-3xl">13 SEPT</span>
-          <span className="text-white/80 font-bold">-</span>
-          <span className="text-yellow-300 font-extrabold text-2xl sm:text-3xl">15 SEPT</span>
+          <span className="text-yellow-300 font-extrabold text-2xl sm:text-3xl">13 SEPT Onwords</span>
+          {/* <span className="text-white/80 font-bold">-</span>
+          <span className="text-yellow-300 font-extrabold text-2xl sm:text-3xl">15 SEPT</span> */}
         </div>
 
         <p className="mt-3 text-sm">Learn More &amp; Register: <a href="https://edusathi.net/invest" className="text-yellow-300 font-semibold">EDUSATHI.NET/INVEST</a></p>

@@ -59,7 +59,7 @@ export default function Navbar() {
           {/* Enhanced Desktop CTA & Mobile Menu Button */}
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Link to="/InvestmentLanding" className="hidden sm:block">
+            <Link to="/Invest" className="hidden sm:block">
               <Button className="relative overflow-hidden bg-gradient-to-r from-blue-500 via-purple-600 to-indigo-600 hover:from-blue-600 hover:via-purple-700 hover:to-indigo-700 text-white px-4 sm:px-6 py-2 text-sm sm:text-base shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 rounded-xl font-semibold group">
                 <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <Sparkles className="w-4 h-4 mr-2 relative z-10 group-hover:rotate-12 transition-transform duration-300" />
@@ -111,7 +111,7 @@ export default function Navbar() {
             
             {/* Enhanced Mobile CTA */}
             <div className="pt-4 border-t border-slate-200/50 dark:border-slate-700/50 mt-4">
-              <Link to="/InvestmentLanding" onClick={() => setMobileMenuOpen(false)}>
+              <Link to="/Invest" onClick={() => setMobileMenuOpen(false)}>
                 <Button className="w-full bg-gradient-to-r from-blue-500 via-purple-600 to-indigo-600 hover:from-blue-600 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl font-semibold group">
                   <Sparkles className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform duration-300" />
                   Join Now

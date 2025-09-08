@@ -38,7 +38,7 @@ jobs:
         cd server
         npm ci
 
-    - name: Deploy to EC2   # 👈 yaha aapka block add hoga
+    - name: Deploy to EC2
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.HOST }}
@@ -48,37 +48,24 @@ jobs:
           # Fix PATH for Node/NPM/PM2
           export NVM_DIR="$HOME/.nvm"
           export PATH="$NVM_DIR/versions/node/v22.18.0/bin:$PATH"
-
+          
+          # Navigate to project directory
           cd /var/www/edusathi
-          git reset --hard   # (to avoid merge conflict with local changes)
+          
+          # Pull latest changes
           git pull origin main
           
-          # Update server
+          # Update server dependencies
           cd server
           npm install --production
           
-          # Update client
+          # Update client and build
           cd ../client
           npm install
           npm run build
           
-          # Update environment variables
-          cd ../server
-          echo "PORT=3001" > .env
-          echo "MONGODB_URI=mongodb://localhost:27017/edusathi_production" >> .env
-          echo "RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}" >> .env
-          echo "RAZORPAY_KEY_SECRET=${{ secrets.RAZORPAY_KEY_SECRET }}" >> .env
-          echo "PING_MESSAGE=ping" >> .env
-          echo "JWT_ACCESS_SECRET=your_super_secure_access_secret_here" >> .env
-          echo "JWT_REFRESH_SECRET=your_super_secure_refresh_secret_here" >> .env
-          echo "JWT_ACCESS_EXPIRES=15m" >> .env
-          echo "JWT_REFRESH_EXPIRES=7d" >> .env
-          echo "VITE_ADMIN_EMAIL=admin@edusathi.com" >> .env
-          echo "VITE_ADMIN_PASSWORD=edusathi2025" >> .env
-          echo "NODE_ENV=production" >> .env
-          
           # Restart application
-          pm2 restart edusathi-server || pm2 start server.js --name edusathi-server
+          pm2 restart edusathi-server || pm2 start index.js --name edusathi-server
           
-          # Restart Nginx
+          # Reload Nginx
           sudo systemctl reload nginx

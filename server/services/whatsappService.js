@@ -2,36 +2,62 @@ import axios from 'axios';
 
 class WhatsAppService {
   constructor() {
-    this.apiUrl = process.env.WHATSAPP_API_URL;
-    this.token = process.env.WHATSAPP_TOKEN;
+    this.metaPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
+    this.metaAccessToken = process.env.META_ACCESS_TOKEN;
     this.adminPhoneNumber = process.env.ADMIN_PHONE_NUMBER;
+    this.adminImageUrl = process.env.ADMIN_IMAGE_URL;
+    this.confirmationImageUrl = process.env.CONFIRMATION_IMAGE_URL;
+    this.apiUrl = `https://graph.facebook.com/v20.0/${this.metaPhoneNumberId}/messages`;
   }
 
-  // Format phone number to ensure it has country code
+  // Format phone number for WhatsApp (international format)
   formatPhoneNumber(phoneNumber) {
-    // Remove all non-digit characters
-    let cleaned = phoneNumber.replace(/\D/g, '');
+    // Remove spaces, dashes, parentheses but keep + and digits
+    let cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
     
-    // Add country code if not present (assuming Indian numbers)
-    if (!cleaned.startsWith('91') && cleaned.length === 10) {
+    // If it already starts with +, return as is
+    if (cleaned.startsWith('+')) {
+      return cleaned.substring(1); // Remove + for WhatsApp API
+    }
+    
+    // Remove any leading zeros
+    cleaned = cleaned.replace(/^0+/, '');
+    
+    // Add country code if not present (assuming Indian numbers for 10-digit numbers)
+    if (cleaned.length === 10 && !cleaned.startsWith('91')) {
       cleaned = '91' + cleaned;
     }
     
     return cleaned;
   }
 
-  // Send WhatsApp message using msgwapi.com
-  async sendMessage(to, message) {
+  // Send WhatsApp message with image using Meta Business API
+  async sendWhatsAppMessage(to, caption, imageUrl) {
     try {
       const formattedNumber = this.formatPhoneNumber(to);
       
-      const params = new URLSearchParams({
-        receiver: formattedNumber,
-        msgtext: message,
-        token: this.token
+      const payload = {
+        messaging_product: "whatsapp",
+        to: formattedNumber,
+        type: "image",
+        image: {
+          link: imageUrl,
+          caption: caption
+        }
+      };
+
+      const headers = {
+        'Authorization': `Bearer ${this.metaAccessToken}`,
+        'Content-Type': 'application/json'
+      };
+
+      console.log('Sending WhatsApp message via Meta API:', {
+        to: formattedNumber,
+        caption: caption.substring(0, 100) + '...',
+        imageUrl: imageUrl
       });
 
-      const response = await axios.get(`${this.apiUrl}?${params.toString()}`);
+      const response = await axios.post(this.apiUrl, payload, { headers });
 
       console.log('WhatsApp message sent successfully:', response.data);
       return {
@@ -49,71 +75,80 @@ class WhatsAppService {
 
   // Send booking notification to admin
   async sendAdminNotification(bookingData) {
-    const { fullName, phoneNumber, email, city, country, date, time } = bookingData;
-    const formattedDate = new Date(date).toLocaleDateString('en-GB', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const { fullName, phoneNumber, email, date } = bookingData;
 
-    const message = `🎯 *New Investment Seminar Booking*
+    const caption = `📢 New Booking!
+👤 Name: ${fullName}
+📱 Phone: ${phoneNumber}
+✉️ Email: ${email}
+📅 Date: ${date}`;
 
-👤 *Name:* ${fullName}
-📧 *Email:* ${email}
-📱 *Phone:* ${phoneNumber}
-🏙️ *City:* ${city}
-🌍 *Country:* ${country}
-📅 *Date:* ${formattedDate}
-⏰ *Time:* ${time}
-
-💼 *Platform:* EDUSATHI.NET Investment Seminar
-🔗 *Source:* Investment Landing Page
-📝 *Status:* New Booking
-
-Please contact this person to confirm their investment seminar slot.`;
-
-    return await this.sendMessage(this.adminPhoneNumber, message);
+    return await this.sendWhatsAppMessage(this.adminPhoneNumber, caption, this.adminImageUrl);
   }
 
   // Send confirmation message to user
   async sendUserConfirmation(bookingData) {
-    const { fullName, phoneNumber, date, time } = bookingData;
-    const formattedDate = new Date(date).toLocaleDateString('en-GB', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    const { fullName, phoneNumber, date } = bookingData;
+
+    const caption = `✅ Hi ${fullName}, your booking for ${date} is confirmed!
+We will contact you shortly.`;
+
+    console.log('Sending user confirmation with image:', {
+      phoneNumber,
+      imageUrl: this.confirmationImageUrl,
+      caption: caption.substring(0, 50) + '...'
     });
 
-    const message = `✅ *Investment Seminar Booking Confirmed*
+    const result = await this.sendWhatsAppMessage(phoneNumber, caption, this.confirmationImageUrl);
+    
+    if (!result.success) {
+      console.error('Failed to send image message to user, trying text-only fallback');
+      // Fallback: send text message with image URL
+      const textMessage = `${caption}\n\n📸 View confirmation image: ${this.confirmationImageUrl}`;
+      return await this.sendTextMessage(phoneNumber, textMessage);
+    }
+    
+    return result;
+  }
 
-Hi ${fullName}! 👋
+  // Send text-only message as fallback
+  async sendTextMessage(to, message) {
+    try {
+      const formattedNumber = this.formatPhoneNumber(to);
+      
+      const payload = {
+        messaging_product: "whatsapp",
+        to: formattedNumber,
+        type: "text",
+        text: {
+          body: message
+        }
+      };
 
-Your booking for the EDUSATHI.NET Investment Seminar has been successfully registered.
+      const headers = {
+        'Authorization': `Bearer ${this.metaAccessToken}`,
+        'Content-Type': 'application/json'
+      };
 
-📋 *Booking Details:*
-📅 Date: ${formattedDate}
-⏰ Time: ${time}
+      console.log('Sending text-only WhatsApp message:', {
+        to: formattedNumber,
+        message: message.substring(0, 100) + '...'
+      });
 
-🎯 *What's Next?*
-• Our team will contact you within 24 hours
-• You'll receive joining instructions via email
-• Prepare your questions about investment opportunities
+      const response = await axios.post(this.apiUrl, payload, { headers });
 
-💡 *About the Seminar:*
-• Learn about EDUSATHI.NET's growth potential
-• Understand investment opportunities
-• Network with other potential investors
-
-Thank you for your interest in EDUSATHI.NET! 🚀
-
-For any queries, reply to this message or call our support team.
-
-Best regards,
-EDUSATHI.NET Team`;
-
-    return await this.sendMessage(phoneNumber, message);
+      console.log('Text message sent successfully:', response.data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error sending text message:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data || error.message
+      };
+    }
   }
 
   // Send both admin and user messages

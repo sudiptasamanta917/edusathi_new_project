@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,10 +40,10 @@ export function SeminarBookingDialog() {
       return;
     }
 
-    // Phone number validation
-    const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
-    if (!phoneRegex.test(phoneNumber)) {
-      alert('Please enter a valid phone number (minimum 10 digits)');
+    // Phone number validation - more flexible format
+    const phoneRegex = /^[\+]?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(phoneNumber.replace(/[\s\-\(\)]/g, ''))) {
+      alert('Please enter a valid phone number');
       return;
     }
 
@@ -125,6 +125,9 @@ export function SeminarBookingDialog() {
           <DialogTitle className="text-2xl font-bold text-center text-gray-900 dark:text-white">
             Register for Investment Seminar
           </DialogTitle>
+          <DialogDescription className="text-center text-gray-600 dark:text-gray-400">
+            Fill out the form below to secure your spot in our exclusive investment seminar.
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">

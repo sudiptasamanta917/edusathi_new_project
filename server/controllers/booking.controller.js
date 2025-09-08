@@ -3,15 +3,13 @@ import whatsappService from '../services/whatsappService.js';
 
 // Validate phone number format
 const validatePhoneNumber = (phoneNumber) => {
-  // Remove all non-digit characters
-  const cleaned = phoneNumber.replace(/\D/g, '');
+  // Remove spaces, dashes, parentheses but keep + sign
+  const cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
   
-  // Check if it's a valid length (10-15 digits)
-  if (cleaned.length < 10 || cleaned.length > 15) {
-    return false;
-  }
+  // Check if it matches international format or local format
+  const phoneRegex = /^[\+]?[1-9]\d{8,14}$/;
   
-  return true;
+  return phoneRegex.test(cleaned);
 };
 
 // Validate email format

@@ -34,7 +34,7 @@ import MyCourses from "./pages/student/MyCourses";
 import Profile from "./pages/Profile";
 import PriceManagement from "./pages/business/PriceManagement";
 import DashboardLogin from "./pages/EdusathiDashboard/DashboardLogin";
-import InvestmentLanding from "./pages/Investment/InvestmentLanding";
+import Invest from "./pages/Investment/invest";
 
 const queryClient = new QueryClient();
 
@@ -50,7 +50,7 @@ const router = createBrowserRouter(
       <Route path="/login" element={<Login />} />
       <Route path="/get-started" element={<GetStarted />} />
       <Route path="/auth" element={<Auth />} />
-      <Route path="/InvestmentLanding" element={<InvestmentLanding />} />
+      <Route path="/invest" element={<Invest />} />
       
       <Route
         path="/student"

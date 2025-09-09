@@ -2,12 +2,11 @@ import axios from 'axios';
 
 class WhatsAppService {
   constructor() {
-    this.metaPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
-    this.metaAccessToken = process.env.META_ACCESS_TOKEN;
+    this.apiUrl = process.env.WHATSAPP_API_URL;
+    this.apiToken = process.env.WHATSAPP_API_TOKEN;
     this.adminPhoneNumber = process.env.ADMIN_PHONE_NUMBER;
     this.adminImageUrl = process.env.ADMIN_IMAGE_URL;
     this.confirmationImageUrl = process.env.CONFIRMATION_IMAGE_URL;
-    this.apiUrl = `https://graph.facebook.com/v20.0/${this.metaPhoneNumberId}/messages`;
   }
 
   // Format phone number for WhatsApp (international format)
@@ -31,33 +30,27 @@ class WhatsAppService {
     return cleaned;
   }
 
-  // Send WhatsApp message with image using Meta Business API
+  // Send WhatsApp message with image using msgwapi.com
   async sendWhatsAppMessage(to, caption, imageUrl) {
     try {
       const formattedNumber = this.formatPhoneNumber(to);
       
-      const payload = {
-        messaging_product: "whatsapp",
-        to: formattedNumber,
-        type: "image",
-        image: {
-          link: imageUrl,
-          caption: caption
-        }
-      };
+      const params = new URLSearchParams({
+        receiver: formattedNumber,
+        msgtext: caption,
+        token: this.apiToken,
+        mediaurl: imageUrl
+      });
 
-      const headers = {
-        'Authorization': `Bearer ${this.metaAccessToken}`,
-        'Content-Type': 'application/json'
-      };
+      const fullUrl = `${this.apiUrl}?${params.toString()}`;
 
-      console.log('Sending WhatsApp message via Meta API:', {
+      console.log('Sending WhatsApp message via msgwapi:', {
         to: formattedNumber,
         caption: caption.substring(0, 100) + '...',
         imageUrl: imageUrl
       });
 
-      const response = await axios.post(this.apiUrl, payload, { headers });
+      const response = await axios.get(fullUrl);
 
       console.log('WhatsApp message sent successfully:', response.data);
       return {
@@ -116,26 +109,20 @@ We will contact you shortly.`;
     try {
       const formattedNumber = this.formatPhoneNumber(to);
       
-      const payload = {
-        messaging_product: "whatsapp",
-        to: formattedNumber,
-        type: "text",
-        text: {
-          body: message
-        }
-      };
+      const params = new URLSearchParams({
+        receiver: formattedNumber,
+        msgtext: message,
+        token: this.apiToken
+      });
 
-      const headers = {
-        'Authorization': `Bearer ${this.metaAccessToken}`,
-        'Content-Type': 'application/json'
-      };
+      const fullUrl = `${this.apiUrl}?${params.toString()}`;
 
       console.log('Sending text-only WhatsApp message:', {
         to: formattedNumber,
         message: message.substring(0, 100) + '...'
       });
 
-      const response = await axios.post(this.apiUrl, payload, { headers });
+      const response = await axios.get(fullUrl);
 
       console.log('Text message sent successfully:', response.data);
       return {

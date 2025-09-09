@@ -86,7 +86,7 @@ const createBooking = async (req, res) => {
     const booking = new Booking(bookingData);
     await booking.save();
 
-    // Send WhatsApp notifications
+    // Send WhatsApp notifications using msgwapi.com
     let whatsappResults = { admin: { success: false }, user: { success: false } };
     
     try {

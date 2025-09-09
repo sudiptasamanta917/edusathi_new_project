@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -20,9 +21,21 @@ export function SeminarBookingDialog() {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const timeSlots = [
-    '09:00 AM', '10:00 AM', '11:00 AM', '02:00 PM', '03:00 PM', '04:00 PM'
-  ];
+  const generateTimeOptions = () => {
+    const times = [];
+    for (let hour = 10; hour <= 20; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const time24 = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const time12 = `${hour12.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${ampm}`;
+        times.push({ value: time24, label: time12 });
+      }
+    }
+    return times;
+  };
+
+  const timeOptions = generateTimeOptions();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +133,7 @@ export function SeminarBookingDialog() {
           Join Our Online Investment Seminar
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-900">
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center text-gray-900 dark:text-white">
             Register for Investment Seminar
@@ -130,75 +143,81 @@ export function SeminarBookingDialog() {
           </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
-            <Input
-              id="fullName"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Enter your full name"
-              className="dark:bg-gray-800 dark:border-gray-700"
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className="dark:bg-gray-800 dark:border-gray-700"
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Enter your phone number"
-              className="dark:bg-gray-800 dark:border-gray-700"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="fullName">Full Name</Label>
               <Input
-                id="city"
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Enter your city"
+                id="fullName"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Enter your full name"
                 className="dark:bg-gray-800 dark:border-gray-700"
                 required
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="country"
-                type="text"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                placeholder="Enter your country"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
                 className="dark:bg-gray-800 dark:border-gray-700"
                 required
               />
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label>Select Date</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="Enter your phone number"
+                className="dark:bg-gray-800 dark:border-gray-700"
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Enter your city"
+                  className="dark:bg-gray-800 dark:border-gray-700"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  type="text"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="Enter your country"
+                  className="dark:bg-gray-800 dark:border-gray-700"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Select Date</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -259,28 +278,31 @@ export function SeminarBookingDialog() {
                 </div>
               </PopoverContent>
             </Popover>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Select Time Slot</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {timeSlots.map((slot) => (
-                <Button
-                  key={slot}
-                  type="button"
-                  variant={time === slot ? "default" : "outline"}
-                  onClick={() => setTime(slot)}
-                  className="dark:bg-gray-800 dark:border-gray-700"
-                >
-                  {slot}
-                </Button>
-              ))}
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Select Time</Label>
+              <Select value={time} onValueChange={setTime}>
+                <SelectTrigger className="w-full dark:bg-gray-800 dark:border-gray-700">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-gray-500" />
+                    <SelectValue placeholder="Choose a time" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {timeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.label}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           
           <Button 
             type="submit" 
-            className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-6 text-lg"
+            className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-4 text-base"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Registering...' : 'Confirm Registration'}

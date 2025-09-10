@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 import { CalendarIcon, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -42,21 +43,30 @@ export function SeminarBookingDialog() {
     
     // Validation
     if (!fullName || !email || !phoneNumber || !city || !country || !date || !time) {
-      alert('Please fill in all fields');
+      toast.error('Validation Error', {
+        description: 'Please fill in all fields',
+        duration: 3000,
+      });
       return;
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      alert('Please enter a valid email address');
+      toast.error('Invalid Email', {
+        description: 'Please enter a valid email address',
+        duration: 3000,
+      });
       return;
     }
 
     // Phone number validation - more flexible format
     const phoneRegex = /^[\+]?[1-9]\d{1,14}$/;
     if (!phoneRegex.test(phoneNumber.replace(/[\s\-\(\)]/g, ''))) {
-      alert('Please enter a valid phone number');
+      toast.error('Invalid Phone Number', {
+        description: 'Please enter a valid phone number',
+        duration: 3000,
+      });
       return;
     }
 
@@ -74,7 +84,7 @@ export function SeminarBookingDialog() {
 
       console.log('Submitting booking:', bookingData);
 
-      const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://edusathi.net';
+      const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
       const response = await fetch(`${serverUrl}/api/book`, {
         method: 'POST',
         headers: {
@@ -90,7 +100,10 @@ export function SeminarBookingDialog() {
       }
 
       if (result.success) {
-        alert('🎉 Registration successful! You will receive a WhatsApp confirmation shortly. We look forward to seeing you at the seminar!');
+        toast.success('🎉 Registration Successful!', {
+          description: 'You will receive a WhatsApp confirmation shortly. We look forward to seeing you at the seminar!',
+          duration: 5000,
+        });
         setOpen(false);
         
         // Reset form
@@ -118,7 +131,10 @@ export function SeminarBookingDialog() {
         }
       }
       
-      alert(`❌ ${errorMessage}`);
+      toast.error('❌ Registration Failed', {
+        description: errorMessage,
+        duration: 4000,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -128,7 +144,8 @@ export function SeminarBookingDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button 
-          className="bg-yellow-400 hover:bg-yellow-300 text-black px-6 py-6 text-lg font-bold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+          data-dialog-trigger
+          className="bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black font-bold py-2 sm:py-3 md:py-4 px-4 sm:px-6 md:px-8 rounded-lg text-sm sm:text-base md:text-lg lg:text-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 animate-pulse"
         >
           Join Our Online Investment Seminar
         </Button>

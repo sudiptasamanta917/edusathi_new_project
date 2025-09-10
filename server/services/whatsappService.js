@@ -84,7 +84,11 @@ class WhatsAppService {
     const { fullName, phoneNumber, date } = bookingData;
 
     const caption = `✅ Hi ${fullName}, your booking for ${date} is confirmed!
-We will contact you shortly.`;
+We will contact you shortly.
+
+📞 Contact: Giri Dutta
+📱 Phone: 919733140877
+🌐 Website: edusathi.net`;
 
     console.log('Sending user confirmation with image:', {
       phoneNumber,

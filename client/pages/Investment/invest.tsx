@@ -232,7 +232,7 @@ const Invest = () => {
       </g>
     </svg>
 
-    <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-6xl">
+    <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-4xl">
       {/* Top headline */}
       <div className="text-center mb-3 sm:mb-4">
         <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl mb-4 sm:mb-6 md:mb-8 font-extrabold tracking-tight uppercase leading-tight">
@@ -247,7 +247,7 @@ const Invest = () => {
 
       {/* Combined Globe and Platform Info in Single White Container */}
       <div className="container px-2 sm:px-4 md:px-6 lg:px-8">
-        <div className="bg-white text-[#062042] rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl p-3 xs:p-4 sm:p-5 md:p-6 lg:p-8 max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto animate-rotateReveal">
+        <div className="bg-white text-[#062042] rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl p-3 xs:p-4 sm:p-5 md:p-4 lg:p-6 max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-3xl xl:max-w-3xl mx-auto animate-rotateReveal">
           <div className="flex flex-col md:flex-row lg:flex-row items-center justify-between gap-4 sm:gap-6 md:gap-8 lg:gap-10 xl:gap-12">
             {/* Globe Section */}
             <div className="flex-1 flex justify-center items-center py-2 sm:py-3 md:py-4 animate-slideInLeft animate-delay-1800">
@@ -357,7 +357,10 @@ const Invest = () => {
         <p className="mt-2 sm:mt-3 text-xs sm:text-sm md:text-base opacity-90 animate-fadeInUp animate-delay-1800">Showcasing Platform & Insights</p>
 
         <div className="mt-2 sm:mt-3 md:mt-4 flex items-baseline justify-center gap-1 sm:gap-2 md:gap-3 animate-fadeInUp animate-delay-1800">
-         <span className="text-yellow-300 font-extrabold text-sm xs:text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl animate-premiumGlow">
+         <span 
+           className="text-yellow-300 font-extrabold text-sm xs:text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl animate-premiumGlow cursor-pointer hover:text-yellow-200 transition-colors duration-300"
+           onClick={() => (document.querySelector('[data-dialog-trigger]') as HTMLButtonElement)?.click()}
+         >
   13<span className="align-super text-xs xs:text-sm sm:text-base md:text-lg">th</span> September Onwards
 </span>
 

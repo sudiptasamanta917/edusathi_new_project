@@ -5,7 +5,7 @@ import { SeminarBookingDialog } from '@/components/investment/SeminarBookingDial
 
 const Invest = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#062042] to-[#0b3b6b] text-white px-3 sm:px-6 py-6 sm:py-8 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#062042] to-[#0b3b6b] text-white px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 relative overflow-hidden">
       {/* Professional Animation Styles */}
       <style>{`
         /* Modern Text Reveal Animations */
@@ -232,26 +232,26 @@ const Invest = () => {
       </g>
     </svg>
 
-    <div className="relative z-10 w-full max-w-3xl">
+    <div className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-6xl">
       {/* Top headline */}
       <div className="text-center mb-3 sm:mb-4">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl mb-8 font-extrabold tracking-tight uppercase leading-tight">
-          <div className="gradient-reveal-line1 inline-block">UNLOCK THE FUTURE OF</div>
+        <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl mb-4 sm:mb-6 md:mb-8 font-extrabold tracking-tight uppercase leading-tight">
+          <div className="gradient-reveal-line1 inline-block">Unlock the Future of</div>
           <br />
-          <span className="text-[50px] line-clamp-2 mt-[20px] shimmer-reveal-line2 inline-block animate-premiumGlow">EDUCATION</span>
+          <span className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl line-clamp-2 mt-2 sm:mt-4 md:mt-6 shimmer-reveal-line2 inline-block animate-premiumGlow">Education</span>
         </h1>
-        <p className="mt-2 sm:mt-3 mb-3 sm:mb-10 text-yellow-300 text-lg sm:text-xl md:text-2xl font-bold uppercase animate-fadeInUp animate-delay-1200 animate-subtleFloat">
-          INVEST IN EDUSATHI.NET
+        <p className="mt-2 sm:mt-3 mb-4 sm:mb-6 md:mb-8 lg:mb-10 text-yellow-300 text-sm xs:text-base sm:text-lg md:text-xl lg:text-2xl font-bold uppercase animate-fadeInUp animate-delay-1200 animate-subtleFloat">
+          Invest in EduSathi.net
         </p>
       </div>
 
       {/* Combined Globe and Platform Info in Single White Container */}
-      <div className="container  px-4 sm:px-0">
-        <div className="bg-white text-[#062042] rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 max-w-5xl mx-auto animate-rotateReveal">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-12">
+      <div className="container px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="bg-white text-[#062042] rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl p-3 xs:p-4 sm:p-5 md:p-6 lg:p-8 max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto animate-rotateReveal">
+          <div className="flex flex-col md:flex-row lg:flex-row items-center justify-between gap-4 sm:gap-6 md:gap-8 lg:gap-10 xl:gap-12">
             {/* Globe Section */}
-            <div className="flex-1 flex justify-center items-center py-4 animate-slideInLeft animate-delay-1800">
-              <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80">
+            <div className="flex-1 flex justify-center items-center py-2 sm:py-3 md:py-4 animate-slideInLeft animate-delay-1800">
+              <div className="relative w-40 h-40 xs:w-48 xs:h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-72 lg:h-72 xl:w-80 xl:h-80">
                 {/* Globe */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -301,8 +301,8 @@ const Invest = () => {
                 </svg>
 
                 {/* Graduation Cap positioned above globe (static) */}
-                <div className="absolute -top-8 sm:-top-10 md:-top-12 left-1/2 -translate-x-1/2">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" className="w-20 h-20 sm:w-24 pt-10 sm:h-24 md:w-28 md:h-28">
+                <div className="absolute -top-6 xs:-top-7 sm:-top-8 md:-top-10 lg:-top-12 left-1/2 -translate-x-1/2">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" className="w-12 h-12 xs:w-16 xs:h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 pt-4 xs:pt-6 sm:pt-8 md:pt-10">
                     <polygon points="32,4 2,20 32,36 62,20" fill="#0f172a" stroke="#334155" strokeWidth="2" />
                     <rect x="26" y="36" width="12" height="12" fill="#0f172a" />
                     <line x1="62" y1="20" x2="62" y2="40" stroke="#facc15" strokeWidth="3" />
@@ -315,30 +315,30 @@ const Invest = () => {
             {/* Platform Info Section */}
             <div className="flex-1 max-w-lg lg:max-w-md animate-slideInRight animate-delay-1800">
               <div className="flex flex-col items-center lg:items-start h-full justify-center px-4 lg:px-0">
-                <div className="flex items-center justify-center lg:justify-start gap-3 mb-6 w-full animate-fadeInUp animate-delay-1800">
-                  <div className="w-12 h-12 rounded-md bg-[#0b3b6b] flex items-center justify-center flex-shrink-0 animate-subtleFloat">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <div className="flex items-center justify-center md:justify-start gap-2 xs:gap-3 mb-3 sm:mb-4 md:mb-5 lg:mb-6 w-full animate-fadeInUp animate-delay-1800">
+                  <div className="w-8 h-8 xs:w-10 xs:h-10 sm:w-12 sm:h-12 rounded-md bg-[#0b3b6b] flex items-center justify-center flex-shrink-0 animate-subtleFloat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="xs:w-5 xs:h-5 sm:w-6 sm:h-6 md:w-7 md:h-7">
                       <path d="M12 2L1 7l11 5 9-4.09V17h2V7L12 2z" fill="#FFD43B" />
                       <path d="M11 13v7h2v-7h-2z" fill="#ffffff" opacity="0.9" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl lg:text-3xl font-extrabold text-center lg:text-left animate-premiumGlow">EDUSATHI.NET</h2>
+                  <h2 className="text-lg xs:text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold text-center md:text-left animate-premiumGlow">EduSathi.net</h2>
                 </div>
 
-                <div className="text-center lg:text-left w-full">
-                  <p className="text-base lg:text-lg font-semibold text-[#0b3b6b] mb-6 leading-tight animate-fadeInUp animate-delay-600">REVENUE-READY EDTECH PLATFORM</p>
+                <div className="text-center md:text-left w-full">
+                  <p className="text-sm xs:text-base sm:text-lg md:text-xl font-semibold text-[#0b3b6b] mb-3 sm:mb-4 md:mb-5 lg:mb-6 leading-tight animate-fadeInUp animate-delay-600">Revenue-Ready EdTech Platform</p>
 
-                  <ul className="text-sm lg:text-base space-y-4 text-gray-700">
-                    <li className="flex items-center justify-center lg:justify-start gap-3 animate-fadeInUp animate-delay-900">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white font-bold text-xs flex-shrink-0 animate-pulseGlow">✓</span>
+                  <ul className="text-xs xs:text-sm sm:text-base md:text-lg space-y-2 sm:space-y-3 md:space-y-4 text-gray-700">
+                    <li className="flex items-center justify-center md:justify-start gap-2 sm:gap-3 animate-fadeInUp animate-delay-900">
+                      <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-green-500 text-white font-bold text-xs flex-shrink-0 animate-pulseGlow">✓</span>
                       <span className="text-left">100% Complete Development</span>
                     </li>
-                    <li className="flex items-center justify-center lg:justify-start gap-3 animate-fadeInUp animate-delay-1200">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white font-bold text-xs flex-shrink-0 animate-pulseGlow">✓</span>
+                    <li className="flex items-center justify-center md:justify-start gap-2 sm:gap-3 animate-fadeInUp animate-delay-1200">
+                      <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-green-500 text-white font-bold text-xs flex-shrink-0 animate-pulseGlow">✓</span>
                       <span className="text-left">Proven Market Outreach</span>
                     </li>
-                    <li className="flex items-center justify-center lg:justify-start gap-3 animate-fadeInUp animate-delay-1500">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white font-bold text-xs flex-shrink-0 animate-pulseGlow">✓</span>
+                    <li className="flex items-center justify-center md:justify-start gap-2 sm:gap-3 animate-fadeInUp animate-delay-1500">
+                      <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-green-500 text-white font-bold text-xs flex-shrink-0 animate-pulseGlow">✓</span>
                       <span className="text-left">Seeking Investment Partners</span>
                     </li>
                   </ul>
@@ -350,22 +350,25 @@ const Invest = () => {
       </div>
 
       {/* CTA block */}
-      <div className="mt-4 sm:mt-8 text-center px-2 animate-fadeInUp animate-delay-1800">
+      <div className="mt-3 sm:mt-4 md:mt-6 lg:mt-8 text-center px-2 sm:px-4 animate-fadeInUp animate-delay-1800">
         <div className="animate-scaleIn animate-delay-1800">
           <SeminarBookingDialog />
         </div>
-        <p className="mt-2 sm:mt-3 text-xs sm:text-sm opacity-90 animate-fadeInUp animate-delay-1800">Showcasing Platform &amp; Insights</p>
+        <p className="mt-2 sm:mt-3 text-xs sm:text-sm md:text-base opacity-90 animate-fadeInUp animate-delay-1800">Showcasing Platform & Insights</p>
 
-        <div className="mt-3 sm:mt-4 flex items-baseline justify-center gap-2 sm:gap-3 animate-fadeInUp animate-delay-1800">
-          <span className="text-yellow-300 font-extrabold text-lg sm:text-2xl md:text-3xl animate-premiumGlow">13Th Sep Onwards</span>
+        <div className="mt-2 sm:mt-3 md:mt-4 flex items-baseline justify-center gap-1 sm:gap-2 md:gap-3 animate-fadeInUp animate-delay-1800">
+         <span className="text-yellow-300 font-extrabold text-sm xs:text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl animate-premiumGlow">
+  13<span className="align-super text-xs xs:text-sm sm:text-base md:text-lg">th</span> September Onwards
+</span>
+
         </div>
 
-        <p className="mt-2 sm:mt-3 text-xs sm:text-sm px-2 animate-fadeInUp animate-delay-1800">Learn More &amp; Register: <a href="https://edusathi.net/Invest" className="text-yellow-300 font-semibold break-all hover:animate-premiumGlow transition-all duration-300">EDUSATHI.NET/INVEST</a></p>
+        <p className="mt-2 sm:mt-3 text-xs sm:text-sm md:text-base px-2 sm:px-4 animate-fadeInUp animate-delay-1800">Learn More & Register: <a href="https://edusathi.net/Invest" className="text-yellow-300 font-semibold break-all hover:animate-premiumGlow transition-all duration-300">edusathi.net/Invest</a></p>
       </div>
 
       {/* Footer */}
-      <footer className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-white/70 px-2 animate-fadeInUp animate-delay-1800">
-        © {new Date().getFullYear()} EDUSATHI.NET — Unlock the future of education
+      <footer className="mt-3 sm:mt-4 md:mt-6 text-center text-xs sm:text-sm md:text-base text-white/70 px-2 sm:px-4 animate-fadeInUp animate-delay-1800">
+        © {new Date().getFullYear()} EduSathi.net — Unlock the Future of Education
       </footer>
     </div>
   </div>

@@ -74,7 +74,7 @@ export function SeminarBookingDialog() {
 
       console.log('Submitting booking:', bookingData);
 
-      const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+      const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://edusathi.net';
       const response = await fetch(`${serverUrl}/api/book`, {
         method: 'POST',
         headers: {

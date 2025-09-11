@@ -62,7 +62,7 @@ jobs:
           # Update client and build
           cd ../client
           npm install
-          npm run build
+          node --max-old-space-size=2048 ./node_modules/.bin/vite build
           
           # Restart application
           pm2 restart edusathi-server || pm2 start index.js --name edusathi-server

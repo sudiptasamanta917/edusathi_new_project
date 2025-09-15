@@ -65,7 +65,7 @@ jobs:
           node --max-old-space-size=2048 ./node_modules/.bin/vite build
           
           # Restart application
-          pm2 restart edusathi-server || pm2 start index.js --name edusathi-server
+          pm2 restart edusathi-server || pm2 start start.js --name edusathi-server
           
           # Reload Nginx
           sudo systemctl reload nginx

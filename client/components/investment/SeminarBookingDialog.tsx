@@ -85,7 +85,7 @@ export function SeminarBookingDialog() {
       console.log('Submitting booking:', bookingData);
 
       const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
-      const response = await fetch(`${serverUrl}/api/book`, {
+      const response = await fetch(`${serverUrl}/book`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

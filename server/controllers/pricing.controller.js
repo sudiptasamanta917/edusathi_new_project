@@ -36,6 +36,9 @@ export const createPlan = async (req, res) => {
   try {
     const { name, description, pricing, features, isPopular, order, activeDuration, quarterlyMonths, yearlyYears } = req.body;
 
+    // Determine if this is the first plan being created
+    const existingCount = await PricingPlan.countDocuments();
+
     const plan = new PricingPlan({
       name,
       description,
@@ -43,6 +46,8 @@ export const createPlan = async (req, res) => {
       features: features || [],
       isPopular: isPopular || false,
       order: order || 0,
+      // First plan becomes primary automatically
+      isPrimary: existingCount === 0,
       activeDuration: ["monthly", "quarterly", "yearly"].includes(activeDuration)
         ? activeDuration
         : undefined,

@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import Center from '../models/Center.js';
 import Business from '../models/Business.js';
 import BusinessPurchase from '../models/BusinessPurchase.js';
+import PricingPlan from '../models/PricingPlan.js';
+import Subscription from '../models/Subscription.js';
 
 function computeExpiresAt(plan, durationDays) {
   const now = new Date();
@@ -97,6 +99,32 @@ export const createPaymentOrder = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
+    // Resolve selected plan document (by name)
+    let planDoc = null;
+    let planId = null;
+    try {
+      if (plan) {
+        planDoc = await PricingPlan.findOne({ name: String(plan) });
+        planId = planDoc?._id || null;
+      }
+    } catch {}
+
+    // Enforce: primary plan can be purchased only once per business user
+    try {
+      const userId = req.user?.role === 'business' ? req.user._id : null;
+      if (userId && planDoc?.isPrimary && planId) {
+        const existingSub = await Subscription.findOne({ userId, planId, status: 'active' });
+        if (existingSub) {
+          return res.status(400).json({ success: false, error: 'You can purchase this primary plan only once.' });
+        }
+        // Fallback safety: check any paid purchases for this business and plan name
+        const paidPurchase = await BusinessPurchase.findOne({ status: 'paid', businessId: userId, plan: String(plan) });
+        if (paidPurchase) {
+          return res.status(400).json({ success: false, error: 'You can purchase this primary plan only once.' });
+        }
+      }
+    } catch {}
+
     const receipt = `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const normEmail = String(email).toLowerCase().trim();
@@ -108,7 +136,7 @@ export const createPaymentOrder = async (req, res) => {
       amount: amount,
       currency: 'INR',
       receipt: receipt,
-      notes: { institute: normInstitute, owner: normOwner, email: normEmail, plan, domain: normDomain, durationDays: durationDays ?? null, billing: billing ?? null, timestamp: new Date().toISOString() },
+      notes: { institute: normInstitute, owner: normOwner, email: normEmail, plan, planId: planId ? String(planId) : null, domain: normDomain, durationDays: durationDays ?? null, billing: billing ?? null, timestamp: new Date().toISOString() },
     });
 
     // Persist a purchase record with status 'created'
@@ -185,6 +213,7 @@ export const verifyPayment = async (req, res) => {
       const owner = String(notes.owner || '').trim();
       const email = notes.email ? String(notes.email).toLowerCase().trim() : null;
       const plan = notes.plan;
+      const notePlanId = notes.planId ? String(notes.planId) : null;
       const domain = notes.domain ? String(notes.domain).toLowerCase().trim() : null;
       const durationDays = notes.durationDays;
 
@@ -238,6 +267,28 @@ export const verifyPayment = async (req, res) => {
           console.error('Failed to persist business purchase (verify-update):', persistErr);
         }
 
+        try {
+          // Create or ensure Subscription exists (active)
+          const userId = req.user?.role === 'business' ? req.user._id : null;
+          // Resolve planId
+          let planDoc = null;
+          if (notePlanId) {
+            planDoc = await PricingPlan.findById(notePlanId).lean();
+          }
+          if (!planDoc && plan) {
+            planDoc = await PricingPlan.findOne({ name: String(plan) }).lean();
+          }
+          const planId = planDoc?._id || null;
+          if (userId && planId) {
+            await Subscription.findOneAndUpdate(
+              { userId, planId },
+              { $set: { status: 'active' }, $setOnInsert: { userId, planId, paymentId: razorpay_payment_id, orderId: razorpay_order_id, status: 'active' } },
+              { upsert: true, new: true }
+            );
+          }
+        } catch (persistSubErr) {
+          console.error('Failed to persist subscription (existing center):', persistSubErr);
+        }
         return res.json({ success: true, message: 'Payment verified and subscription updated successfully', payment_id: razorpay_payment_id, order_id: razorpay_order_id, center: existingCenter, updated: true });
       }
 
@@ -286,6 +337,28 @@ export const verifyPayment = async (req, res) => {
         console.error('Failed to persist business purchase (verify-create):', persistErr);
       }
 
+      try {
+        // Create or ensure Subscription exists (active)
+        const userId = req.user?.role === 'business' ? req.user._id : null;
+        // Resolve planId
+        let planDoc = null;
+        if (notePlanId) {
+          planDoc = await PricingPlan.findById(notePlanId).lean();
+        }
+        if (!planDoc && plan) {
+          planDoc = await PricingPlan.findOne({ name: String(plan) }).lean();
+        }
+        const planId = planDoc?._id || null;
+        if (userId && planId) {
+          await Subscription.findOneAndUpdate(
+            { userId, planId },
+            { $set: { status: 'active' }, $setOnInsert: { userId, planId, paymentId: razorpay_payment_id, orderId: razorpay_order_id, status: 'active' } },
+            { upsert: true, new: true }
+          );
+        }
+      } catch (persistSubErr) {
+        console.error('Failed to persist subscription (new center):', persistSubErr);
+      }
       res.json({ success: true, message: 'Payment verified and institute created successfully', payment_id: razorpay_payment_id, order_id: razorpay_order_id, center: newCenter });
     } else {
       // Mark purchase as failed if we have an order id

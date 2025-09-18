@@ -4,14 +4,31 @@ const API_BASE_URL =
   (import.meta as any).env?.VITE_SERVER_URL ||
   "http://localhost:3001";
 
+// Normalize origin (strip trailing slashes and a trailing '/api') so we can safely join paths
+const API_BASE_ORIGIN = String(API_BASE_URL).replace(/\/+$/, '').replace(/\/api$/, '');
+
 export const api = {
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_ORIGIN,
 };
 
-export const API_BASE =
-  (import.meta as any).env?.VITE_API_URL ||
-  (import.meta as any).env?.VITE_SERVER_URL ||
-  "http://localhost:3001";
+// Public export for consumers that need the origin (no trailing '/api')
+export const API_BASE = API_BASE_ORIGIN;
+
+// Build a full URL ensuring we have exactly one '/api' segment
+function buildUrl(path: string): string {
+  const base = API_BASE_ORIGIN;
+  let p = path.startsWith('/') ? path : `/${path}`;
+  const baseEndsWithApi = /\/api$/i.test(base);
+
+  if (baseEndsWithApi && p.toLowerCase().startsWith('/api/')) {
+    // Base already includes '/api', strip the duplicate from path
+    p = p.slice(4);
+  } else if (!baseEndsWithApi && !p.toLowerCase().startsWith('/api')) {
+    // Base does not include '/api', ensure path does
+    p = '/api' + p;
+  }
+  return `${base}${p}`;
+}
 
 export function authHeaders(): Record<string, string> {
   const token =
@@ -29,7 +46,7 @@ async function refreshAccessToken() {
     sessionStorage.getItem("refreshToken") ||
     localStorage.getItem("refreshToken");
   if (!rt) throw new Error("No refresh_token");
-  const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+  const res = await fetch(buildUrl('/api/auth/refresh'), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: rt }),
@@ -50,7 +67,7 @@ async function refreshAccessToken() {
 }
 
 async function request<T>(path: string, init: RequestInit, retry = true): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, init);
+  const res = await fetch(buildUrl(path), init);
   if (res.status === 401 && retry) {
     try {
       await refreshAccessToken();

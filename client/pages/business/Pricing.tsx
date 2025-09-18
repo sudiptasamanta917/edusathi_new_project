@@ -57,7 +57,13 @@ export default function Pricing() {
     try {
       setLoading(true);
       const response = await apiGet<PricingPlan[]>('/api/pricing');
-      setPlans(response);
+      // Use server-provided public plans directly (server already returns only active plans)
+      if (response && Array.isArray(response) && response.length > 0) {
+        setPlans(response);
+      } else {
+        console.warn('No plans from API, using static plans');
+        setPlans(staticPlans);
+      }
     } catch (error) {
       console.error('Error fetching plans:', error);
       // Fallback to static plans if API fails
@@ -209,7 +215,7 @@ export default function Pricing() {
 
         {/* Pricing Plans */}
         <section className="container max-w-7xl mx-auto px-4 pb-20">
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 lg:gap-10 max-w-6xl mx-auto">
             {plans.map((plan, index) => (
               <div
                 key={plan._id}
@@ -217,25 +223,31 @@ export default function Pricing() {
                 style={{ animationDelay: `${index * 200}ms` }}
               >
                 {plan.isPopular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-blue-500 to-green-500 text-white px-4 py-1">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+                    <Badge className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-1 rounded-full shadow-lg">
                       Most Popular
                     </Badge>
                   </div>
                 )}
 
                 <Card
-                  className={`rounded-2xl border-0 shadow-lg hover:shadow-xl dark:shadow-slate-900/50 dark:hover:shadow-slate-900/70 transition-all duration-300 h-full ${
+                  className={`group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-md hover:shadow-2xl transition-all duration-300 h-full hover:-translate-y-1 ${
                     plan.isPopular
-                      ? "ring-2 ring-blue-200 dark:ring-blue-700 bg-white dark:bg-slate-800"
-                      : "bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm"
+                      ? "ring-2 ring-blue-300/60 dark:ring-blue-700 bg-white dark:bg-slate-800"
+                      : "bg-white/80 dark:bg-slate-800/70 backdrop-blur-md"
                   }`}
                 >
+                  <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-gradient-to-br from-blue-500/10 to-green-500/10 blur-2xl" />
+                    <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-gradient-to-tr from-purple-500/10 to-blue-500/10 blur-2xl" />
+                  </div>
                   <CardHeader className="text-center pb-8">
                     <div className="flex justify-center mb-4">
-                      {index === 0 && <Zap className="w-8 h-8 text-blue-500 dark:text-blue-400" />}
-                      {index === 1 && <Building className="w-8 h-8 text-green-500 dark:text-green-400" />}
-                      {index === 2 && <Crown className="w-8 h-8 text-purple-500 dark:text-purple-400" />}
+                      <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500/10 to-green-500/10 dark:from-blue-400/10 dark:to-green-400/10 flex items-center justify-center">
+                        {index === 0 && <Zap className="w-7 h-7 text-blue-600 dark:text-blue-400" />}
+                        {index === 1 && <Building className="w-7 h-7 text-green-600 dark:text-green-400" />}
+                        {index === 2 && <Crown className="w-7 h-7 text-purple-600 dark:text-purple-400" />}
+                      </div>
                     </div>
                     <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                       {plan.name}
@@ -244,10 +256,12 @@ export default function Pricing() {
                       {plan.description}
                     </CardDescription>
                     <div className="pt-4">
-                      <div className="text-4xl font-bold text-slate-900 dark:text-slate-100">
-                        {currencySymbol(plan.pricing[(plan.activeDuration || 'monthly') as 'monthly' | 'quarterly' | 'yearly']?.currency)}
-                        {plan.pricing[(plan.activeDuration || 'monthly') as 'monthly' | 'quarterly' | 'yearly']?.price}
-                        <span className="text-lg font-normal text-slate-500 dark:text-slate-400">
+                      <div className="text-4xl font-extrabold text-slate-900 dark:text-slate-100">
+                        <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                          {currencySymbol(plan.pricing[(plan.activeDuration || 'monthly') as 'monthly' | 'quarterly' | 'yearly']?.currency)}
+                          {plan.pricing[(plan.activeDuration || 'monthly') as 'monthly' | 'quarterly' | 'yearly']?.price}
+                        </span>
+                        <span className="ml-1 text-lg font-normal text-slate-500 dark:text-slate-400">
                           {(() => {
                             const d = (plan.activeDuration || 'monthly') as 'monthly' | 'quarterly' | 'yearly';
                             if (d === 'monthly') return '/month';
@@ -268,22 +282,24 @@ export default function Pricing() {
 
                     <div className="space-y-3">
                       <h4 className="font-semibold text-slate-900 dark:text-slate-100">Everything included:</h4>
-                      {plan.features.filter((f) => f.included).map((feature, featureIndex) => (
-                        <div key={featureIndex} className="flex items-center gap-3">
-                          <Check className="w-5 h-5 text-green-500 dark:text-green-400 flex-shrink-0" />
-                          <span className="text-slate-700 dark:text-slate-300">{feature.name}</span>
-                        </div>
-                      ))}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {plan.features.filter((f) => f.included).map((feature, featureIndex) => (
+                          <div key={featureIndex} className="flex items-center gap-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 px-2.5 py-1.5">
+                            <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                            <span className="text-sm text-slate-700 dark:text-slate-300">{feature.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     <Link
                       to={`/pricing/setup?plan=${encodeURIComponent(plan.name)}&price=${plan.pricing[(plan.activeDuration || 'monthly') as 'monthly' | 'quarterly' | 'yearly']?.price}&billing=${(plan.activeDuration || 'monthly')}`}
                     >
                       <Button
-                        className={`w-full ${
+                        className={`w-full py-6 transition-colors ${
                           plan.isPopular
-                            ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                            : ""
+                            ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                            : "border-slate-300 hover:border-blue-400 hover:text-blue-600"
                           }`}
                         variant={plan.isPopular ? "default" : "outline"}
                         size="lg"

@@ -170,16 +170,20 @@ export default function PricingDynamic() {
             <p className="text-slate-500 mt-2">Please check back later or contact support.</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10 max-w-6xl mx-auto">
             {plans.map((plan, index) => (
               <Card
                 key={plan._id}
-                className={`relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 ${
+                className={`group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${
                   plan.isPopular
-                    ? "ring-2 ring-blue-500 shadow-xl scale-105"
-                    : "hover:shadow-xl"
+                    ? "ring-2 ring-blue-300/60 dark:ring-blue-700 bg-white dark:bg-slate-800"
+                    : "bg-white/80 dark:bg-slate-800/70 backdrop-blur-md"
                 }`}
               >
+                <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-gradient-to-br from-blue-500/10 to-green-500/10 blur-2xl" />
+                  <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-gradient-to-tr from-purple-500/10 to-blue-500/10 blur-2xl" />
+                </div>
                 {plan.isPopular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
                     <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-1 rounded-full shadow-lg flex items-center gap-1">
@@ -191,7 +195,9 @@ export default function PricingDynamic() {
 
                 <CardHeader className="text-center pb-2 pt-8">
                   <div className="flex justify-center mb-4">
-                    {getPlanIcon(index)}
+                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500/10 to-green-500/10 dark:from-blue-400/10 dark:to-green-400/10 flex items-center justify-center">
+                      {getPlanIcon(index)}
+                    </div>
                   </div>
                   <CardTitle className="text-2xl font-bold text-slate-900">
                     {plan.name}
@@ -203,8 +209,10 @@ export default function PricingDynamic() {
 
                 <CardContent className="text-center">
                   <div className="mb-6">
-                    <div className="text-4xl font-bold text-slate-900 mb-2">
-                      {formatPrice(plan.pricing[billingCycle].price, plan.pricing[billingCycle].currency)}
+                    <div className="text-4xl font-extrabold text-slate-900 mb-2">
+                      <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                        {formatPrice(plan.pricing[billingCycle].price, plan.pricing[billingCycle].currency)}
+                      </span>
                     </div>
                     <div className="text-slate-500">
                       per {billingCycle === 'yearly' ? 'year' : billingCycle === 'quarterly' ? '3 months' : 'month'}
@@ -213,28 +221,15 @@ export default function PricingDynamic() {
 
                   <Separator className="my-6" />
 
-                  <div className="space-y-4 mb-8">
-                    {plan.features.map((feature, featureIndex) => (
-                      <div key={featureIndex} className="flex items-center gap-3">
-                        <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
-                          feature.included ? 'bg-green-100' : 'bg-red-100'
-                        }`}>
-                          <Check className={`w-3 h-3 ${
-                            feature.included ? 'text-green-600' : 'text-red-600'
-                          }`} />
+                  <div className="space-y-3 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {plan.features.filter((f) => f.included).map((feature, featureIndex) => (
+                        <div key={featureIndex} className="flex items-center gap-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 px-2.5 py-1.5">
+                          <Check className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                          <span className="text-sm text-slate-700 dark:text-slate-300">{feature.name}</span>
                         </div>
-                        <div className="text-left">
-                          <span className={`text-sm ${
-                            feature.included ? 'text-slate-700' : 'text-slate-400 line-through'
-                          }`}>
-                            {feature.name}
-                          </span>
-                          {feature.description && (
-                            <p className="text-xs text-slate-500 mt-1">{feature.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   <Link
@@ -242,12 +237,13 @@ export default function PricingDynamic() {
                     className="block"
                   >
                     <Button
-                      className={`w-full py-3 ${
+                      className={`w-full py-6 transition-colors ${
                         plan.isPopular
-                          ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                          : ""
+                          ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                          : "border-slate-300 hover:border-blue-400 hover:text-blue-600"
                       }`}
                       variant={plan.isPopular ? "default" : "outline"}
+                      size="lg"
                     >
                       Get Started
                     </Button>

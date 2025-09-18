@@ -58,6 +58,11 @@ const pricingPlanSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Mark the primary (first) plan; enforced in controller on create
+  isPrimary: {
+    type: Boolean,
+    default: false,
+  },
   activeDuration: {
     type: String,
     enum: ['monthly', 'quarterly', 'yearly'],

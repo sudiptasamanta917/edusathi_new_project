@@ -168,7 +168,7 @@ export const salesAPI = {
     api.get('/sales/my'),
   
   getContentSales: (contentId: string) =>
-    api.get(`/sales/content/${contentId}`),
+    api.get(`/sales/content/${contentId}`)
 };
 
 export default api;

@@ -11,7 +11,7 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/EdusathiDashboard/Dashboard";
 import CreateCenter from "./pages/EdusathiDashboard/CreateCenter";
 import CenterList from "./pages/EdusathiDashboard/CenterList";
-import Pricing from "./pages/business/Pricing";
+import PricingDynamic from "./pages/business/Pricing_Dynamic";
 import PricingForm from "./pages/business/PricingForm";
 import AboutUs from "./pages/Edusathihome/AboutUs";
 import ContactUs from "./pages/Edusathihome/ContactUs";
@@ -35,6 +35,7 @@ import Profile from "./pages/Profile";
 import PriceManagement from "./pages/business/PriceManagement";
 import DashboardLogin from "./pages/EdusathiDashboard/DashboardLogin";
 import Invest from "./pages/Investment/invest";
+import UserList from "./pages/EdusathiDashboard/UserList";
 
 const queryClient = new QueryClient();
 
@@ -43,7 +44,7 @@ const router = createBrowserRouter(
     <>
      
       <Route path="/" element={<Index />} />
-      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/pricing" element={<PricingDynamic />} />
       <Route path="/pricing/setup" element={<PricingForm />} />
       <Route path="/about" element={<AboutUs />} />
       <Route path="/contact" element={<ContactUs />} />
@@ -129,6 +130,14 @@ const router = createBrowserRouter(
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/users/:role"
+        element={
+          <ProtectedRoute>
+            <UserList />
           </ProtectedRoute>
         }
       />

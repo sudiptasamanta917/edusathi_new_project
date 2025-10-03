@@ -1,167 +1,240 @@
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
+import React, { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+
+import { Star, Upload } from "lucide-react";
+import Sidebar from "./SideBar";
+
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+} from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import { Avatar, AvatarImage, AvatarFallback } from "../../components/ui/avatar";
-import RoleDashboardLayout from "../../components/RoleDashboardLayout";
-import { LayoutDashboard, UploadCloud, List, BarChart3, User } from "lucide-react";
+import {
+    Avatar,
+    AvatarImage,
+    AvatarFallback,
+} from "../../components/ui/avatar";
 import { useAuth } from "../../src/contexts/AuthContext";
-import CreatorUpload from "./CreatorUpload";
-import CreatorContents from "./CreatorContents";
-import CreatorSales from "./CreatorSales";
-import { useLocation, useNavigate } from "react-router-dom";
+
+interface Review {
+    name: string;
+    review: string;
+    rating: number;
+}
+
+interface Subscriber {
+    name: string;
+    age: number;
+}
+
+interface Analytics {
+    subscribers: number;
+    views: number;
+    watchTime: number; // hours
+}
 
 export default function CreatorDashboard() {
-  const { user, updateAvatar } = useAuth();
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+    const { user } = useAuth();
+    const location = useLocation();
 
-  const currentPath = location.pathname;
-  const navigateSection = (s: "profile" | "upload" | "contents" | "sales" | "account") => {
-    const map: Record<string, string> = {
-      profile: "/creator",
-      upload: "/creator/upload",
-      contents: "/creator/contents",
-      sales: "/creator/sales",
-      account: "/creator/account",
-    };
-    navigate(map[s] || "/creator");
-  };
+    // Initial placeholder states for frontend
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+    const [analytics, setAnalytics] = useState<Analytics>({
+        subscribers: 0,
+        views: 0,
+        watchTime: 0,
+    });
 
-  function logout() {
-    for (const storage of [localStorage, sessionStorage]) {
-      storage.removeItem("access_token");
-      storage.removeItem("refresh_token");
-      storage.removeItem("accessToken");
-      storage.removeItem("refreshToken");
-      storage.removeItem("user");
-      storage.removeItem("userProfile");
-      storage.removeItem("isLoggedIn");
-      storage.removeItem("userRole");
-    }
-    navigate("/auth?role=creator", { replace: true });
-  }
+    // Initials for avatar fallback
+    const initials = (user?.name || user?.email || "C")
+        .slice(0, 1)
+        .toUpperCase();
 
-  const onUploadAvatar = async () => {
-    if (!avatarFile) return;
-    try {
-      setUploading(true);
-      await updateAvatar(avatarFile);
-      setAvatarFile(null);
-    } catch (e) {
-      // noop
-    } finally {
-      setUploading(false);
-    }
-  };
+    // Simulate API fetch on component mount
+    useEffect(() => {
+        // TODO: Replace with API calls
+        setReviews([
+            {
+                name: "Ananya Sharma",
+                review: "The lessons were clear and well explained. Really helpful!",
+                rating: 5,
+            },
+            {
+                name: "Rahul Mehta",
+                review: "Good content, but I wish there were more practice questions.",
+                rating: 4,
+            },
+            {
+                name: "Priya Das",
+                review: "Amazing notes and very engaging teaching style.",
+                rating: 4,
+            },
+        ]);
 
-  // Build navigation for RoleDashboardLayout
-  const navigationItems = [
-    { title: "Dashboard", href: "/creator", icon: LayoutDashboard, isActive: currentPath === "/creator", isExpandable: false as const },
-    { title: "Upload", href: "/creator/upload", icon: UploadCloud, isActive: currentPath.startsWith("/creator/upload"), isExpandable: false as const },
-    { title: "Contents", href: "/creator/contents", icon: List, isActive: currentPath.startsWith("/creator/contents"), isExpandable: false as const },
-    { title: "Sales", href: "/creator/sales", icon: BarChart3, isActive: currentPath.startsWith("/creator/sales"), isExpandable: false as const },
-    { title: "Account", href: "/creator/account", icon: User, isActive: currentPath.startsWith("/creator/account"), isExpandable: false as const },
-  ];
+        setSubscribers([
+            { name: "Sudipta Samanta", age: 13 },
+            { name: "Subham", age: 20 },
+            { name: "Sujay Pradhan", age: 18 },
+        ]);
 
-  const initials = (user?.name || user?.email || "C").slice(0, 1).toUpperCase();
-  const avatarSrc = user?.avatarUrl || undefined;
+        setAnalytics({
+            subscribers: 79,
+            views: 0,
+            watchTime: 0,
+        });
+    }, []);
 
-  return (
-    <RoleDashboardLayout
-      title="Creator Dashboard"
-      navigationItems={navigationItems}
-      sidebarProfile={
-        <div className="flex items-center gap-3">
-          <button className="rounded-full" onClick={() => navigate("/creator/account")} title="Profile">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={avatarSrc} alt={user?.name || "C"} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-          </button>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium line-clamp-1">{user?.name || "Creator"}</span>
-            <span className="text-xs text-muted-foreground">View profile</span>
-          </div>
+    return (
+        <div className="flex min-h-screen bg-[#282828] text-white">
+            <Sidebar />
+
+            {/* Main Content */}
+            <main className="flex-1 p-6 overflow-y-auto">
+                <h1 className="text-2xl font-bold mb-6">Creator Dashboard</h1>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Upload section */}
+                    <Card className="bg-[#282828] text-white">
+                        <CardContent className="flex flex-col items-center justify-center h-64">
+                            <Upload className="w-16 h-16 text-blue-400 mb-4" />
+                            <p className="text-center text-gray-300 mb-3">
+                                Upload and publish a video.
+                            </p>
+                            <Button>Upload Videos</Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Channel Analytics */}
+                    <Card className="bg-[#282828] text-white">
+                        <CardHeader>
+                            <div className="text-white font-semibold text-lg">
+                                Analytics
+                            </div>
+                            <CardDescription>
+                                Current subscribers
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <h2 className="text-3xl font-bold mb-2">
+                                {analytics.subscribers}
+                            </h2>
+                            <p className="text-sm text-gray-400 mb-3">
+                                Last 28 days
+                            </p>
+                            <div className="space-y-1 text-sm">
+                                <p>Views: {analytics.views}</p>
+                                <p>Watch time (hours): {analytics.watchTime}</p>
+                            </div>
+                            <Button className="mt-4 w-full">
+                                Go to analytics page
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Reviews & Ratings */}
+                    <Card className="bg-[#282828] text-white">
+                        <CardHeader>
+                            <div className="text-white font-semibold text-lg">
+                                Student&apos;s Reviews & Ratings
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {reviews.map((r, i) => (
+                                <div key={i} className="flex items-start gap-3">
+                                    <Avatar className="h-10 w-10">
+                                        <AvatarImage src="" alt={r.name} />
+                                        <AvatarFallback>
+                                            {r.name[0]}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1">
+                                        <p className="font-medium text-sm">
+                                            {r.name}
+                                        </p>
+                                        <div className="flex items-center text-yellow-400 mb-1">
+                                            {Array.from({ length: 5 }).map(
+                                                (_, idx) => (
+                                                    <Star
+                                                        key={idx}
+                                                        className={`h-4 w-4 ${
+                                                            idx < r.rating
+                                                                ? "fill-yellow-400"
+                                                                : "text-gray-600"
+                                                        }`}
+                                                    />
+                                                )
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-gray-300">
+                                            {r.review}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+
+                            <Button className="w-full mt-2">
+                                See All Reviews
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Recent Subscribers */}
+                    <Card className="bg-[#282828] text-white">
+                        <CardHeader>
+                            <div className="text-white font-semibold text-lg">
+                                Recent Subscribers
+                            </div>
+                            <CardDescription>Lifetime</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {subscribers.map((s, i) => (
+                                <div
+                                    key={i}
+                                    className="flex items-center gap-3"
+                                >
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarFallback>
+                                            {s.name[0]}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="text-sm">{s.name}</p>
+                                        <p className="text-xs text-gray-400">
+                                            Age {s.age} Years
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                            <Button className="mt-2 w-full">See All</Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* What's New */}
+                    <Card className="bg-[#282828] text-white">
+                        <CardHeader>
+                            <div className="text-white font-semibold text-lg">
+                                What's New in EduSathi
+                            </div>
+                        </CardHeader>
+                        <CardContent className="text-sm space-y-2 text-gray-300">
+                            <p>• Increasing Student's engagement</p>
+                            <p>
+                                • Personalized study plans based on student
+                                progress
+                            </p>
+                            <p>• Faster and more secure login system</p>
+                            <p>
+                                • Expanded course library across multiple
+                                subjects
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            </main>
         </div>
-      }
-      sidebarFooter={<Button className="w-full" size="sm" variant="destructive" onClick={logout}>Logout</Button>}
-    >
-      {/* Main content */}
-      <div className="space-y-6">
-        {currentPath.startsWith("/creator/upload") ? (
-          <CreatorUpload embedded onNavigateSection={navigateSection} />
-        ) : currentPath.startsWith("/creator/contents") ? (
-          <CreatorContents embedded onNavigateSection={navigateSection} />
-        ) : currentPath.startsWith("/creator/sales") ? (
-          <CreatorSales embedded />
-        ) : currentPath.startsWith("/creator/account") ? (
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>Account</CardTitle>
-              <CardDescription>Your account information</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4 mb-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={avatarSrc} alt={user?.name || "C"} />
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <div className="grid gap-2">
-                  <div>
-                    <Label htmlFor="creator-avatar">Profile picture</Label>
-                    <Input id="creator-avatar" type="file" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
-                  </div>
-                  <div>
-                    <Button size="sm" disabled={!avatarFile || uploading} onClick={onUploadAvatar}>
-                      {uploading ? "Uploading..." : "Upload Avatar"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p><strong>Name:</strong> {user?.name || "-"}</p>
-                <p><strong>Email:</strong> {user?.email || "-"}</p>
-                <p><strong>Role:</strong> {user?.role || "creator"}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>Profile</CardTitle>
-              <CardDescription>Your creator info</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4 mb-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={user?.avatarUrl || undefined} alt={user?.name || "U"} />
-                  <AvatarFallback>{user?.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
-                </Avatar>
-                <div className="grid gap-2">
-                  <div>
-                    <Label htmlFor="avatar">Profile picture</Label>
-                    <Input id="avatar" type="file" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
-                  </div>
-                  <div>
-                    <Button size="sm" disabled={!avatarFile || uploading} onClick={onUploadAvatar}>
-                      {uploading ? "Uploading..." : "Upload Avatar"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p><strong>Name:</strong> {user?.name || "-"}</p>
-                <p><strong>Email:</strong> {user?.email || "-"}</p>
-                <p><strong>Role:</strong> {user?.role || "creator"}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </RoleDashboardLayout>
-  );
+    );
 }

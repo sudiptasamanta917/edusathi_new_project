@@ -26,7 +26,12 @@ import StudentDashboard from "./pages/student/StudentDashboard";
 import CreatorDashboard from "./pages/creator/CreatorDashboard";
 import BusinessDashboard from "./pages/business/BusinessDashboard";
 import CreatorUpload from "./pages/creator/CreatorUpload";
-import CreatorContents from "./pages/creator/CreatorContents";
+import CreatorContents from "./pages/creator/ContentManagement";
+import CreatorAnalytics from "./pages/creator/Analytics";
+import CreatorAssessments from "./pages/creator/Assessment";
+import CreatorMonetization from "./pages/creator/Monetization";
+import CreatorPayment from "./pages/creator/Payment";
+import CreatorResources from "./pages/creator/Resources";
 import CreatorSales from "./pages/creator/CreatorSales";
 import CreatorContentDetail from "./pages/creator/CreatorContentDetail";
 import Catalog from "./pages/student/Catalog";
@@ -39,167 +44,205 @@ import Invest from "./pages/Investment/invest";
 const queryClient = new QueryClient();
 
 const router = createBrowserRouter(
-  createRoutesFromElements(
-    <>
-     
-      <Route path="/" element={<Index />} />
-      <Route path="/pricing" element={<PricingDynamic />} />
-      <Route path="/pricing/setup" element={<PricingForm />} />
-      <Route path="/about" element={<AboutUs />} />
-      <Route path="/contact" element={<ContactUs />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/get-started" element={<GetStarted />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/invest" element={<Invest />} />
-      
-      <Route
-        path="/student"
-        element={
-          <ProtectedRoute roles={["student"]}>
-            <StudentDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/student/*"
-        element={
-          <ProtectedRoute roles={["student"]}>
-            <StudentDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/creator"
-        element={
-          <ProtectedRoute roles={["creator"]}>
-            <CreatorDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/creator/*"
-        element={
-          <ProtectedRoute roles={["creator"]}>
-            <CreatorDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/business"
-        element={
-          <ProtectedRoute roles={["business"]}>
-            <BusinessDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/business/*"
-        element={
-          <ProtectedRoute roles={["business"]}>
-            <BusinessDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/settings/pricing"
-        element={
-          <PriceManagement />
-        }
-      />
-      <Route path="/catalog" element={<Catalog />} />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/my-courses"
-        element={
-          <ProtectedRoute roles={["student"]}>
-            <MyCourses />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="/dashboard" element={<DashboardLogin />} />
-      <Route
-        path="/dashboard/overview"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/creator/upload"
-        element={
-          <ProtectedRoute roles={["creator"]}>
-            <CreatorUpload />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/creator/contents"
-        element={
-          <ProtectedRoute roles={["creator"]}>
-            <CreatorContents />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/creator/content/:id"
-        element={
-          <ProtectedRoute roles={["creator"]}>
-            <CreatorContentDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/creator/sales"
-        element={
-          <ProtectedRoute roles={["creator"]}>
-            <CreatorSales />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/centers"
-        element={
-          <ProtectedRoute>
-            <CenterList />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/centers/create"
-        element={
-          <ProtectedRoute>
-            <CreateCenter />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <Admin />
-          </ProtectedRoute>
-        }
-      />
-      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-      <Route path="*" element={<NotFound />} />
-    </>
-  )
+    createRoutesFromElements(
+        <>
+            <Route path="/" element={<Index />} />
+            <Route path="/pricing" element={<PricingDynamic />} />
+            <Route path="/pricing/setup" element={<PricingForm />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/contact" element={<ContactUs />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/get-started" element={<GetStarted />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/invest" element={<Invest />} />
+            <Route
+                path="/student"
+                element={
+                    <ProtectedRoute roles={["student"]}>
+                        <StudentDashboard />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/student/*"
+                element={
+                    <ProtectedRoute roles={["student"]}>
+                        <StudentDashboard />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/creator"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorDashboard />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/creator/*"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorDashboard />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/business"
+                element={
+                    <ProtectedRoute roles={["business"]}>
+                        <BusinessDashboard />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/business/*"
+                element={
+                    <ProtectedRoute roles={["business"]}>
+                        <BusinessDashboard />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/settings/pricing"
+                element={<PriceManagement />}
+            />
+            <Route path="/catalog" element={<Catalog />} />
+            <Route
+                path="/profile"
+                element={
+                    <ProtectedRoute>
+                        <Profile />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/my-courses"
+                element={
+                    <ProtectedRoute roles={["student"]}>
+                        <MyCourses />
+                    </ProtectedRoute>
+                }
+            />
+            <Route path="/dashboard" element={<DashboardLogin />} />
+            <Route
+                path="/dashboard/overview"
+                element={
+                    <ProtectedRoute>
+                        <Dashboard />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/creator/upload"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorUpload />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/creator/contents"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorContents />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/creator/assessments"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorAssessments />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/creator/analytics"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorAnalytics />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/creator/monetization"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorMonetization />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/creator/payment"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorPayment />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/dashboard/creator/resources"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorResources />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/dashboard/creator/content/:id"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorContentDetail />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/creator/sales"
+                element={
+                    <ProtectedRoute roles={["creator"]}>
+                        <CreatorSales />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/centers"
+                element={
+                    <ProtectedRoute>
+                        <CenterList />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/centers/create"
+                element={
+                    <ProtectedRoute>
+                        <CreateCenter />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/dashboard/settings"
+                element={
+                    <ProtectedRoute>
+                        <Settings />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin"
+                element={
+                    <ProtectedRoute>
+                        <Admin />
+                    </ProtectedRoute>
+                }
+            />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+        </>
+    )
 );
 
 const App = () => (

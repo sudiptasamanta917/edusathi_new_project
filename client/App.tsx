@@ -36,6 +36,11 @@ import PriceManagement from "./pages/business/PriceManagement";
 import DashboardLogin from "./pages/EdusathiDashboard/DashboardLogin";
 import Invest from "./pages/Investment/invest";
 import UserList from "./pages/EdusathiDashboard/UserList";
+import PrivacyPolicy from "./pages/footerpages/PrivacyPolicy";
+import TermsandConditions from "./pages/footerpages/TermsandConditions";
+import PricingPolicy from "./pages/footerpages/PricingPolicy";
+import ShippingPolicy from "./pages/footerpages/ShippingPolicy";
+import RefundPolicy from "./pages/footerpages/RefundPolicy";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +57,11 @@ const router = createBrowserRouter(
       <Route path="/get-started" element={<GetStarted />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/invest" element={<Invest />} />
+      <Route path="/legal/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/legal/terms-and-conditions" element={<TermsandConditions />} />
+      <Route path="/legal/pricing-policy" element={<PricingPolicy />} />
+      <Route path="/legal/shipping-policy" element={<ShippingPolicy />} />
+      <Route path="/legal/refund-policy" element={<RefundPolicy />} />
       
       <Route
         path="/student"

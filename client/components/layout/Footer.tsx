@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+
+
 import { GraduationCap, Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 
 export default function Footer() {
@@ -118,7 +120,7 @@ export default function Footer() {
             <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-4">Legal</h4>
             <div className="space-y-2">
               <a
-                href="#"
+                href="/client/pages/footerpages/PrivacyPolicy.tsx"
                 className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 Privacy Policy
@@ -127,19 +129,28 @@ export default function Footer() {
                 href="#"
                 className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
-                Terms of Service
+                Terms and Conditions
+
               </a>
               <a
                 href="#"
                 className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
-                Cookie Policy
+                Pricing Policy
+
               </a>
               <a
                 href="#"
                 className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
-                GDPR
+                Shipping Policy
+
+              </a>
+               <a
+                href="#"
+                className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Refund Policy
               </a>
             </div>
           </div>

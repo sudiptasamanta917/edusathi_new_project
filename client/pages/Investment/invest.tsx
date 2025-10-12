@@ -361,7 +361,7 @@ const Invest = () => {
                             className="text-yellow-300 font-extrabold text-sm xs:text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl animate-premiumGlow cursor-pointer hover:text-yellow-200 transition-colors duration-300"
                             onClick={() => (document.querySelector('[data-dialog-trigger]') as HTMLButtonElement)?.click()}
                         >
-                            13<span className="align-super text-xs xs:text-sm sm:text-base md:text-lg">th</span> September Onwards
+                            <span className="align-super text-xs xs:text-sm sm:text-base md:text-lg"></span> November Onwards
                         </span>
 
                     </div>

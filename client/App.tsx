@@ -40,6 +40,7 @@ import Profile from "./pages/Profile";
 import PriceManagement from "./pages/business/PriceManagement";
 import DashboardLogin from "./pages/EdusathiDashboard/DashboardLogin";
 import Invest from "./pages/Investment/invest";
+import WatchPage from "./pages/WatchPage";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const router = createBrowserRouter(
             <Route path="/get-started" element={<GetStarted />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/invest" element={<Invest />} />
+            <Route path="/watch/:id" element={<WatchPage />} />
             <Route
                 path="/student"
                 element={

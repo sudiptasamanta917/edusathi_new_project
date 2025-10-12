@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import connectDB from "./config/db.js";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import path from "path";
 import demoRoutes from "./routes/demo.routes.js";
@@ -17,6 +18,9 @@ import templatesRoutes from "./routes/templates.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
 
+import creatorAuthenticationRoute from "./routes/CreatorAuthentication/creatorAuthentication.route.js";
+import creatorContentManagementRoute from "./routes/ContentManagement/creatorContentManagement.route.js";
+
 export function createServer() {
   const app = express();
   const port = process.env.PORT || 3001;
@@ -29,12 +33,20 @@ export function createServer() {
   app.options(/.*/, cors());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
 
   // Temporary request logger (debug 404s)
   app.use((req, _res, next) => {
     console.log(`[REQ] ${req.method} ${req.url}`);
     next();
   });
+
+  app.get("/", (req, res) => {
+      res.send("Server is running");
+  });
+
+  app.use("/api/creator", creatorAuthenticationRoute);
+  app.use("/api/creator", creatorContentManagementRoute);
 
   // Serve uploaded files
   app.use('/uploads', express.static('uploads'));

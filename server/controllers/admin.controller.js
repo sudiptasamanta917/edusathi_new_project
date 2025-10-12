@@ -1,5 +1,5 @@
 import Student from '../models/Student.js';
-import Creator from '../models/Creator.js';
+import Creator from "../models/creator.model.js";
 import Business from '../models/Business.js';
 import AdminModel from '../models/Admin.js';
 import BusinessPurchase from '../models/BusinessPurchase.js';

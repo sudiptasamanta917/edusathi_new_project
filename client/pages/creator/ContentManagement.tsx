@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Upload, Edit2, PlusCircle } from "lucide-react";
+import { Video, Image as ImageIcon, Eye, EyeOff } from "lucide-react";
 import {
     Card,
     CardHeader,
@@ -18,6 +19,14 @@ interface Video {
     likes: number;
 }
 
+type UploadResponse = {
+    status?: boolean;
+    success?: boolean;
+    message?: string;
+    error?: string;
+    [k: string]: any;
+};
+
 interface Playlist {
     id: number;
     name: string;
@@ -31,6 +40,12 @@ const ContentManagement: React.FC = () => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [newPlaylistName, setNewPlaylistName] = useState("");
     const [newPlaylistDesc, setNewPlaylistDesc] = useState("");
+    const [thumbnail, setThumbnail] = useState<File | null>(null);
+    const [title, setTitle] = useState<string>("");
+    const [description, setDescription] = useState<string>("");
+    const [isPublic, setIsPublic] = useState<boolean>(true);
+    const [uploadProgress, setUploadProgress] = useState<number>(0);
+    const [loading, setLoading] = useState<boolean>(false);
 
     // Fetch videos & playlists from backend API
     useEffect(() => {
@@ -43,31 +58,88 @@ const ContentManagement: React.FC = () => {
     }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
-        }
-    };
+    const f = e.target.files?.[0] ?? null;
+    setSelectedFile(f);
+  };
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setThumbnail(f);
+  };
 
     const handleUpload = async () => {
-        if (!selectedFile) return;
+        if (!selectedFile) {
+            alert("Please select a video file to upload.");
+            return;
+        }
+        if (!title.trim()) {
+            alert("Please enter a title for the video.");
+            return;
+        }
+        const token = localStorage.getItem("accessToken") || localStorage.getItem("refreshToken");
 
-        // Placeholder for API call
-        // const formData = new FormData();
-        // formData.append("video", selectedFile);
-        // const res = await fetch("/api/upload", { method: "POST", body: formData });
-        // const newVideo = await res.json();
+        if (!token) {
+            alert("No access token found — please log in again");
+            return;
+        }
 
-        const newVideo: Video = {
-            id: videos.length + 1,
-            title: selectedFile.name,
-            date: new Date().toLocaleDateString(),
-            views: 0,
-            comments: 0,
-            likes: 0,
-        };
+        // const base = import.meta.env.VITE_SERVER_URL ?? "";
+        // const uploadUrl = `${base.replace(/\/$/, "")}/creator/videos/upload`;
 
-        setVideos([newVideo, ...videos]);
-        setSelectedFile(null);
+        const formData = new FormData();
+        formData.append("videoFile", selectedFile);
+        formData.append("title", title);
+        formData.append("description", description);
+        if (thumbnail) {
+            formData.append("thumbnail", thumbnail);
+        }
+        formData.append("duration", "360");
+        formData.append("quality", "1080p");
+        formData.append("course", "6707e8d5b1234567890abcd0");
+        formData.append("playlistOrder", "1");
+        formData.append("isPublic", "true");
+        formData.append("isPremium", "false");
+        formData.append("views", "0");
+        formData.append("likes", "0");
+
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_SERVER_URL}/creator/videos/upload`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: token.startsWith("Bearer")
+                            ? token
+                            : `Bearer ${token}`,
+                    },
+                    body: formData,
+                }
+            );
+
+            const result = await response.json();
+            console.log("Upload Response:", result);
+
+            if (response.ok && result.status) {
+                alert(" Video uploaded successfully!");
+                setVideos([
+                    {
+                        id: videos.length + 1,
+                        title: selectedFile.name,
+                        date: new Date().toLocaleDateString(),
+                        views: 0,
+                        comments: 0,
+                        likes: 0,
+                    },
+                    ...videos,
+                ]);
+                setSelectedFile(null);
+            } else {
+                alert(` Upload failed: ${result.error || result.message}`);
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            alert("⚠️ Something went wrong during upload.");
+        }
     };
 
     const handleCreatePlaylist = async () => {
@@ -132,28 +204,135 @@ const ContentManagement: React.FC = () => {
                 <div className="grid grid-cols-2 gap-6">
                     <div className="">
                         {/* Upload Card */}
-                        <Card className="bg-[#282828] mb-6 border">
-                            <CardHeader>
-                                <div className="text-white font-semibold text-lg">
+                        <div className="bg-[#1f1f1f] border border-gray-700 rounded-2xl p-6 mb-10 shadow-lg max-w-3xl mx-auto text-gray-200">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Video className="w-5 h-5 text-blue-400" />
+                                <h2 className="text-lg font-semibold text-white">
                                     Upload New Video
+                                </h2>
+                            </div>
+
+                            {/* Video Upload */}
+                            <label className="block">
+                                <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-600 rounded-xl p-6 hover:border-blue-500 transition mb-4 cursor-pointer">
+                                    {selectedFile ? (
+                                        <p className="text-blue-400 font-medium break-words text-center">
+                                            {selectedFile.name}
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <Upload className="w-10 h-10 text-blue-400 mb-2" />
+                                            <p className="text-sm text-gray-400">
+                                                Click to choose a video file
+                                            </p>
+                                        </>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="video/*"
+                                        onChange={handleFileChange}
+                                        className="mt-3 text-sm text-gray-300 hidden"
+                                        aria-hidden
+                                    />
                                 </div>
-                            </CardHeader>
-                            <CardContent className="flex flex-col items-center justify-center gap-4 p-6">
-                                <Upload className="w-12 h-12 text-blue-400" />
+                            </label>
+
+                            {/* Thumbnail */}
+                            <div className="mb-4">
+                                <label className="text-sm text-gray-400 flex items-center gap-2 mb-2">
+                                    <ImageIcon className="w-4 h-4" />
+                                    Thumbnail
+                                </label>
                                 <input
                                     type="file"
-                                    accept="video/*"
-                                    onChange={handleFileChange}
+                                    accept="image/*"
+                                    onChange={handleThumbnailChange}
                                     className="text-sm text-gray-300"
                                 />
-                                <Button
-                                    onClick={handleUpload}
-                                    disabled={!selectedFile}
+                            </div>
+
+                            {/* Title */}
+                            <div className="mb-4">
+                                <label className="text-sm text-gray-400 mb-2 block">
+                                    Title
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter video title"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full bg-[#2a2a2a] border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+
+                            {/* Description */}
+                            <div className="mb-4">
+                                <label className="text-sm text-gray-400 mb-2 block">
+                                    Description
+                                </label>
+                                <textarea
+                                    placeholder="Write a short description..."
+                                    value={description}
+                                    onChange={(e) =>
+                                        setDescription(e.target.value)
+                                    }
+                                    className="w-full bg-[#2a2a2a] border border-gray-700 rounded-lg p-2 text-white h-24 resize-none focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+
+                            {/* Visibility */}
+                            <div className="flex items-center gap-4 mb-4">
+                                <button
+                                    onClick={() => setIsPublic((v) => !v)}
+                                    type="button"
+                                    className="flex items-center gap-2 px-4 py-2 border border-gray-600 rounded-lg hover:border-blue-500 transition"
                                 >
-                                    Upload Video
-                                </Button>
-                            </CardContent>
-                        </Card>
+                                    {isPublic ? (
+                                        <>
+                                            <Eye className="w-4 h-4 text-green-400" />{" "}
+                                            <span>Public</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <EyeOff className="w-4 h-4 text-red-400" />{" "}
+                                            <span>Private</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Progress Bar */}
+                            {loading && (
+                                <div className="w-full mb-4">
+                                    <div className="w-full bg-gray-800 h-2 rounded-full">
+                                        <div
+                                            className="bg-blue-500 h-2 rounded-full transition-all duration-200"
+                                            style={{
+                                                width: `${uploadProgress}%`,
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        Uploading... {uploadProgress}%
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Upload Button */}
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={handleUpload}
+                                    disabled={!selectedFile || loading}
+                                    className={`px-6 py-2 rounded-lg font-semibold transition ${
+                                        loading
+                                            ? "bg-gray-600 cursor-not-allowed"
+                                            : "bg-blue-600 hover:bg-blue-700"
+                                    }`}
+                                >
+                                    {loading ? "Uploading..." : "Upload Video"}
+                                </button>
+                            </div>
+                        </div>
 
                         {/* Videos Table */}
                         {videos.length === 0 ? (
@@ -208,7 +387,9 @@ const ContentManagement: React.FC = () => {
                         {/* Playlist Section */}
                         <Card className="bg-[#282828] mb-6">
                             <CardHeader>
-                                <div className="text-lg font-semibold text-white">Playlists</div>
+                                <div className="text-lg font-semibold text-white">
+                                    Playlists
+                                </div>
                             </CardHeader>
                             <CardContent className="flex flex-col gap-4">
                                 <div className="flex gap-2 items-center">
@@ -230,7 +411,10 @@ const ContentManagement: React.FC = () => {
                                         }
                                         className="p-2 rounded bg-gray-700 text-white w-full"
                                     />
-                                    <Button onClick={handleCreatePlaylist} className="px-8">
+                                    <Button
+                                        onClick={handleCreatePlaylist}
+                                        className="px-8"
+                                    >
                                         <PlusCircle className="w-5 h-5" />
                                         Create
                                     </Button>

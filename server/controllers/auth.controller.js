@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import Business from '../models/Business.js';
 import Student from '../models/Student.js';
-import Creator from '../models/Creator.js';
+import Creator from '../models/creator.model.js';
 import Admin from '../models/Admin.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { getFileUrl } from '../middleware/upload.js';

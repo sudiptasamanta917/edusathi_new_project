@@ -124,7 +124,7 @@ export const authAPI = {
     api.post('/auth/login', data),
   
   getProfile: () =>
-    api.get('/auth/profile'),
+    api.get('/creator/profile'),
   
   updateAvatar: (formData: FormData) =>
     api.put('/auth/avatar', formData),

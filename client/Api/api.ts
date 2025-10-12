@@ -212,6 +212,12 @@ export const AuthAPI = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
+  getProfile: () => apiGet<any>("/api/auth/profile"),
+  updateAvatar: (formData: FormData) => request<any>("/api/auth/avatar", {
+    method: "PUT",
+    headers: authHeaders(),
+    body: formData,
+  }),
 };
 
 // Admin
@@ -220,3 +226,20 @@ export const AdminAPI = {
   recentPurchases: (limit: number = 10) => apiGet<any>(`/api/admin/recent-purchases?limit=${encodeURIComponent(limit)}`),
   recentTemplateSelections: (limit: number = 10) => apiGet<any>(`/api/admin/recent-template-selections?limit=${encodeURIComponent(limit)}`),
 };
+
+// Content/Video API
+export const ContentAPI = {
+  getVideos: () => apiGet<any>("/api/creator/videos"),
+  uploadVideo: (formData: FormData) => {
+    const headers = authHeaders();
+    // Don't set Content-Type for FormData - let browser set it with boundary
+    return request<any>("/api/creator/videos/upload", {
+      method: "POST",
+      headers: headers,
+      body: formData,
+    });
+  },
+  getPublicVideos: () => apiGet<any>("/api/contents/videos"),
+};
+
+export const VideoAPI = ContentAPI; // Alias for backwards compatibility

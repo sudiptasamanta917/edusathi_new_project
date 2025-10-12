@@ -1,6 +1,6 @@
 import express from "express";
 import upload from "../../middleware/fileUpload.middleware.js"
-import { verifyCreator } from "../../middleware/auth.middleware.js";
+import { authenticateToken, requireRole } from "../../middleware/auth.js";
 import Video from "../../models/video.model.js";
 import Course from "../../models/course.model.js";
 
@@ -8,18 +8,21 @@ const router = express.Router();
 
 // Utility: Convert S3 URL to HLS master.m3u8 URL
 function convertToHlsUrl(originalUrl, custom) {
-  const basePattern = /https:\/\/[^/]+\/videos\/([^/]+)\/([^/.]+)\.mp4$/;
+  // Updated regex to match actual S3 URL format: https://s3.ap-south-1.amazonaws.com/bucket-name/videos/userId/videoId.mp4
+  const basePattern = /https:\/\/s3\.ap-south-1\.amazonaws\.com\/([^/]+)\/videos\/([^/]+)\/([^/.]+)\.mp4$/;
   const match = originalUrl.match(basePattern);
-  console.log(basePattern);
+  console.log("URL being matched:", originalUrl);
+  console.log("Regex pattern:", basePattern);
 
   if (!match) {
     throw new Error("Invalid URL format");
   }
 
-  const videoFolder = match[1];
-  const videoId = match[2];
+  const bucketName = match[1]; // videos-edusathi.net
+  const videoFolder = match[2]; // userId
+  const videoId = match[3]; // timestamp
 
-  return `https://s3.ap-south-1.amazonaws.com/${custom}/videos/${videoFolder}/${videoId}/hls/master.m3u8`;
+  return `https://s3.ap-south-1.amazonaws.com/${bucketName}/videos/${videoFolder}/${videoId}/hls/master.m3u8`;
 }
 
 // Convert boolean-like values safely
@@ -32,15 +35,23 @@ function parseBoolean(value) {
 }
 
 // Upload a new video (for verified creators)
-router.post("/videos/upload", verifyCreator, upload.single("videoFile"), async (req, res) => {
+router.post("/videos/upload", authenticateToken, requireRole(['creator']),
+  upload.fields([
+    { name: "videoFile", maxCount: 1 },
+    { name: "thumbnail", maxCount: 1 }
+  ]),
+  async (req, res) => {
   try {
      // --- Validate file upload ---
-    if (!req.file) {
+    if (!req.files || !req.files.videoFile) {
       return res.status(400).json({
         status: false,
         error: "Please upload a video file",
       });
     }
+
+    const videoFile = req.files.videoFile[0];
+    const thumbnailFile = req.files.thumbnail ? req.files.thumbnail[0] : null;
 
     // --- Extract body fields ---
     const {
@@ -58,26 +69,29 @@ router.post("/videos/upload", verifyCreator, upload.single("videoFile"), async (
     } = req.body;
 
     // --- Validate required fields ---
-    if (!title || !thumbnail || !duration || !course) {
+    if (!title || !duration || !course) {
       return res.status(400).json({
         status: false,
-        error: "Missing required fields (title, thumbnail, duration, course)",
+        error: "Missing required fields (title, duration, course)",
       });
     }
 
     // --- Generate HLS streaming URL ---
-    const hlsUrl = convertToHlsUrl(req.file.location, process.env.S3_STORAGE_NAME);
+    const hlsUrl = convertToHlsUrl(videoFile.location, process.env.S3_STORAGE_NAME);
+    
+    // --- Handle thumbnail URL ---
+    const thumbnailUrl = thumbnailFile ? thumbnailFile.location : null;
 
     // --- Create video document ---
     const video = new Video({
       title,
       description,
       videoUrl: hlsUrl,
-      thumbnail,
+      thumbnail: thumbnailUrl,
       duration: Number(duration) || 0,
       quality: quality || "720p",
       course,
-      creator: req.creator.id || req.creator._id,
+      creator: req.user.id || req.user._id,
       isPublic: parseBoolean(isPublic),
       isPremium: parseBoolean(isPremium),
       playlistOrder: Number(playlistOrder) || 0,
@@ -104,9 +118,9 @@ router.post("/videos/upload", verifyCreator, upload.single("videoFile"), async (
 });
 
 // Get all videos for a creator (with pagination and filters)
-router.get("/videos", verifyCreator, async (req, res) => {
+router.get("/videos", authenticateToken, requireRole(['creator']), async (req, res) => {
   try {
-    const creatorId = req.creator.id || req.creator._id;
+    const creatorId = req.user.id || req.user._id;
     const {
       page = 1,
       limit = 10,
@@ -175,10 +189,10 @@ router.get("/videos", verifyCreator, async (req, res) => {
 });
 
 // Get single video by ID
-router.get("/videos/:id", verifyCreator, async (req, res) => {
+router.get("/videos/:id", authenticateToken, requireRole(['creator']), async (req, res) => {
   try {
     const { id } = req.params;
-    const creatorId = req.creator.id || req.creator._id;
+    const creatorId = req.user.id || req.user._id;
 
     const video = await Video.findOne({ _id: id, creator: creatorId })
       .populate("course", "title subject grade level")
@@ -207,10 +221,10 @@ router.get("/videos/:id", verifyCreator, async (req, res) => {
 });
 
 // Update video details
-router.put("/videos/:id", verifyCreator, async (req, res) => {
+router.put("/videos/:id", authenticateToken, requireRole(['creator']), async (req, res) => {
   try {
     const { id } = req.params;
-    const creatorId = req.creator.id || req.creator._id;
+    const creatorId = req.user.id || req.user._id;
     
     const {
       title,
@@ -267,10 +281,10 @@ router.put("/videos/:id", verifyCreator, async (req, res) => {
 });
 
 // Delete video (soft delete)
-router.delete("/videos/:id", verifyCreator, async (req, res) => {
+router.delete("/videos/:id", authenticateToken, requireRole(['creator']), async (req, res) => {
   try {
     const { id } = req.params;
-    const creatorId = req.creator.id || req.creator._id;
+    const creatorId = req.user.id || req.user._id;
 
     // Find video and verify ownership
     const video = await Video.findOne({ _id: id, creator: creatorId });
@@ -303,10 +317,10 @@ router.delete("/videos/:id", verifyCreator, async (req, res) => {
 });
 
 // Get video analytics
-router.get("/videos/:id/analytics", verifyCreator, async (req, res) => {
+router.get("/videos/:id/analytics", authenticateToken, requireRole(['creator']), async (req, res) => {
   try {
     const { id } = req.params;
-    const creatorId = req.creator.id || req.creator._id;
+    const creatorId = req.user.id || req.user._id;
 
     const video = await Video.findOne({ _id: id, creator: creatorId })
       .populate("watchTime.student", "firstName lastName email")
@@ -353,7 +367,7 @@ router.get("/videos/:id/analytics", verifyCreator, async (req, res) => {
 });
 
 // Increment video views
-router.post("/videos/:id/view", verifyCreator, async (req, res) => {
+router.post("/videos/:id/view", authenticateToken, requireRole(['creator']), async (req, res) => {
   try {
     const { id } = req.params;
     

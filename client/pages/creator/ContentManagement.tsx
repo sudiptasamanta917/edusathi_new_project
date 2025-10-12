@@ -8,6 +8,7 @@ import {
     CardContent,
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
+import { ContentAPI } from "../../Api/api";
 import Sidebar from "./SideBar";
 
 interface Video {
@@ -49,12 +50,29 @@ const ContentManagement: React.FC = () => {
 
     // Fetch videos & playlists from backend API
     useEffect(() => {
-        // Replace with real API calls later
-        // Example:
-        // fetch("/api/videos").then(res => res.json()).then(setVideos);
-        // fetch("/api/playlists").then(res => res.json()).then(setPlaylists);
-        setVideos([]); // initial empty
-        setPlaylists([]);
+        const fetchData = async () => {
+            try {
+                const videosData = await ContentAPI.getVideos();
+                if (videosData.status && videosData.data?.videos) {
+                    const formattedVideos = videosData.data.videos.map((v: any, index: number) => ({
+                        id: index + 1,
+                        title: v.title,
+                        date: new Date(v.createdAt).toLocaleDateString(),
+                        views: v.views || 0,
+                        comments: 0, // Not available in API yet
+                        likes: v.likes || 0,
+                    }));
+                    setVideos(formattedVideos);
+                }
+            } catch (error) {
+                console.error("Error fetching videos:", error);
+                // Set empty array as fallback
+                setVideos([]);
+            }
+            setPlaylists([]); // Playlists not implemented yet
+        };
+        
+        fetchData();
     }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,15 +94,6 @@ const ContentManagement: React.FC = () => {
             alert("Please enter a title for the video.");
             return;
         }
-        const token = localStorage.getItem("accessToken") || localStorage.getItem("refreshToken");
-
-        if (!token) {
-            alert("No access token found — please log in again");
-            return;
-        }
-
-        // const base = import.meta.env.VITE_SERVER_URL ?? "";
-        // const uploadUrl = `${base.replace(/\/$/, "")}/creator/videos/upload`;
 
         const formData = new FormData();
         formData.append("videoFile", selectedFile);
@@ -95,7 +104,7 @@ const ContentManagement: React.FC = () => {
         }
         formData.append("duration", "360");
         formData.append("quality", "1080p");
-        formData.append("course", "6707e8d5b1234567890abcd0");
+        formData.append("course", "000000000000000000000000"); // Default course ID
         formData.append("playlistOrder", "1");
         formData.append("isPublic", "true");
         formData.append("isPremium", "false");
@@ -103,24 +112,12 @@ const ContentManagement: React.FC = () => {
         formData.append("likes", "0");
 
         try {
-            const response = await fetch(
-                `${import.meta.env.VITE_SERVER_URL}/creator/videos/upload`,
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: token.startsWith("Bearer")
-                            ? token
-                            : `Bearer ${token}`,
-                    },
-                    body: formData,
-                }
-            );
-
-            const result = await response.json();
+            setLoading(true);
+            const result = await ContentAPI.uploadVideo(formData);
             console.log("Upload Response:", result);
 
-            if (response.ok && result.status) {
-                alert(" Video uploaded successfully!");
+            if (result.status) {
+                alert("✅ Video uploaded successfully!");
                 setVideos([
                     {
                         id: videos.length + 1,
@@ -133,12 +130,17 @@ const ContentManagement: React.FC = () => {
                     ...videos,
                 ]);
                 setSelectedFile(null);
+                setTitle("");
+                setDescription("");
+                setThumbnail(null);
             } else {
-                alert(` Upload failed: ${result.error || result.message}`);
+                alert(`❌ Upload failed: ${result.error || result.message}`);
             }
         } catch (error) {
             console.error("Upload error:", error);
-            alert("⚠️ Something went wrong during upload.");
+            alert("⚠️ Something went wrong during upload. Please check your login status.");
+        } finally {
+            setLoading(false);
         }
     };
 

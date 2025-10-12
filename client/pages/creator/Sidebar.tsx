@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
     LayoutDashboard,
     FileVideo,
@@ -53,25 +53,22 @@ const defaultNavItems: NavItem[] = [
 
 const Sidebar: React.FC<SidebarProps> = ({ navItems = defaultNavItems }) => {
     const location = useLocation();
-    const { user, setUser } = useAuth();
+    const navigate = useNavigate();
+    const { user, logout } = useAuth();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/', { replace: true });
+    };
 
     // Optional: Fetch user from API if not in context
     useEffect(() => {
-        // TODO: replace with API call to fetch user info
-        // Example:
-        // fetch("/api/user")
-        //   .then(res => res.json())
-        //   .then(setUser);
-
-        // Example placeholder
+        // The user should already be available from AuthContext after login
+        // If user is null, they might not be logged in
         if (!user) {
-            setUser({
-                name: "Sudipta Samanta",
-                avatarUrl: "",
-                email: "sudipta@example.com",
-            });
+            console.log("No user found in AuthContext. User might not be logged in.");
         }
-    }, [user, setUser]);
+    }, [user]);
 
     const initials = (user?.name || "C").slice(0, 1).toUpperCase();
 
@@ -131,7 +128,11 @@ const Sidebar: React.FC<SidebarProps> = ({ navItems = defaultNavItems }) => {
 
             {/* Sidebar Footer */}
             <div className="pt-4 border-t border-gray-600">
-                <Button className="w-full" variant="destructive">
+                <Button 
+                    className="w-full" 
+                    variant="destructive"
+                    onClick={handleLogout}
+                >
                     Logout
                 </Button>
             </div>

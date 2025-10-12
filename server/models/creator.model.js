@@ -2,15 +2,19 @@ import mongoose from 'mongoose';
 
 const creatorSchema = new mongoose.Schema({
     // Basic Information
-    firstName: {
+    name: {
         type: String,
         required: true,
+        trim: true,
+        maxLength: 100
+    },
+    firstName: {
+        type: String,
         trim: true,
         maxLength: 50
     },
     lastName: {
         type: String,
-        required: true,
         trim: true,
         maxLength: 50
     },
@@ -25,13 +29,17 @@ const creatorSchema = new mongoose.Schema({
         required: true,
         minLength: 6
     },
-    phoneNumber: {
-        type: String,
-        required: true
-    },
+    // phoneNumber: {
+    //     type: String,
+    //     required: true
+    // },
 
     // Profile Information
     profilePicture: {
+        type: String,
+        default: null
+    },
+    avatarUrl: {
         type: String,
         default: null
     },
@@ -122,6 +130,18 @@ const creatorSchema = new mongoose.Schema({
     }]
 }, {
     timestamps: true
+});
+
+// Pre-save middleware to populate name field from firstName and lastName
+creatorSchema.pre('save', function(next) {
+    if (this.firstName && this.lastName && !this.name) {
+        this.name = `${this.firstName} ${this.lastName}`;
+    } else if (this.name && !this.firstName && !this.lastName) {
+        const nameParts = this.name.trim().split(' ');
+        this.firstName = nameParts[0] || '';
+        this.lastName = nameParts.slice(1).join(' ') || '';
+    }
+    next();
 });
 
 

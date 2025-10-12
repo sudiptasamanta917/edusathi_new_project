@@ -24,14 +24,19 @@ class S3StorageWithProgress {
     }
 
     _handleFile(req, file, cb) {
-        // Get creator ID from request
-        const userId = req.creator.id || req.creator._id;
+        // Get user ID from request (works with unified auth system)
+        const userId = req.user?.id || req.user?._id || req.creator?.id || req.creator?._id;
+        
+        if (!userId) {
+            return cb(new Error('User not authenticated'), null);
+        }
+        
         const fileEXT = file.originalname.split('.').pop();
         const timeStamp = Date.now().toString();
         const filePath = `videos/${userId}/${timeStamp}.${fileEXT}`;
 
         console.log(`Starting upload: ${file.originalname}`);
-        console.log(`Creator ID: ${userId}`);
+        console.log(`User ID: ${userId}`);
 
         // Create a pass-through stream to track progress
         const passThrough = new PassThrough();

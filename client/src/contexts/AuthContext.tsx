@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authAPI } from '../services/api';
+import { AuthAPI } from '../../Api/api';
 
 interface User {
   id: string;
@@ -60,8 +60,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(parsed);
           // Verify token with backend and sync the freshest user into the storage that holds the token
           try {
-            const res = await authAPI.getProfile();
-            const serverUser = res?.data?.user || parsed;
+            const res = await AuthAPI.getProfile();
+            const serverUser = res?.user || parsed;
             // Decide which storage currently owns the session (token source)
             const owningStorage =
               (sessionStorage.getItem('access_token') || sessionStorage.getItem('accessToken'))
@@ -101,8 +101,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string, remember: boolean = false, role?: string) => {
     try {
-      const response = await authAPI.login({ email, password, role });
-      const { user: userData, access_token, refresh_token } = response.data;
+      const response = await AuthAPI.login({ email, password, role });
+      const { user: userData, access_token, refresh_token } = response;
 
       const primary = remember ? localStorage : sessionStorage;
       const secondary = remember ? sessionStorage : localStorage;
@@ -139,14 +139,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       setUser(userData);
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Login failed');
+      console.error('Login error:', error);
+      throw new Error(error?.message || 'Login failed');
     }
   };
 
   const register = async (name: string, email: string, password: string, role: string = 'creator', remember: boolean = false) => {
     try {
-      const response = await authAPI.register({ name, email, password, role });
-      const { user: userData, access_token, refresh_token } = response.data;
+      const response = await AuthAPI.register({ name, email, password, role });
+      const { user: userData, access_token, refresh_token } = response;
 
       const primary = remember ? localStorage : sessionStorage;
       const secondary = remember ? sessionStorage : localStorage;
@@ -181,7 +182,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       setUser(userData);
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Registration failed');
+      console.error('Registration error:', error);
+      throw new Error(error?.message || 'Registration failed');
     }
   };
 
@@ -205,8 +207,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshProfile = async () => {
     try {
-      const res = await authAPI.getProfile();
-      const userData = res.data?.user;
+      const res = await AuthAPI.getProfile();
+      const userData = res?.user;
       if (userData) {
         // Write to the storage that currently holds the token
         const owningStorage =
@@ -226,7 +228,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateAvatar = async (file: File) => {
     const formData = new FormData();
     formData.append('avatar', file);
-    await authAPI.updateAvatar(formData);
+    await AuthAPI.updateAvatar(formData);
     await refreshProfile();
   };
 

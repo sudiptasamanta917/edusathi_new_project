@@ -138,21 +138,12 @@ export default function AllVideos() {
         const fetchVideos = async () => {
             try {
                 setLoading(true);
-                const token = localStorage.getItem("accessToken") || localStorage.getItem("refreshToken");
-                if (!token) {
-                    console.error("No access token found.");
-                    setLoading(false);
-                    return;
-                }
 
                 const res = await fetch(
-                    `${import.meta.env.VITE_SERVER_URL}/creator/videos`,
+                    `${import.meta.env.VITE_SERVER_URL}/api/creator/all-videos`,
                     {
                         method: "GET",
                         headers: {
-                            Authorization: token.startsWith("Bearer")
-                                ? token
-                                : `Bearer ${token}`,
                             "Content-Type": "application/json",
                         },
                     }
@@ -191,6 +182,7 @@ export default function AllVideos() {
 
         fetchVideos();
     }, []);
+
 
     if (loading) {
         return <div className="text-center py-20">Loading videos...</div>;

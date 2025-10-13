@@ -74,7 +74,8 @@ export default function WatchPage() {
         );
     if (!video) return <div className="text-center py-10">Video not found</div>;
 
-    const src = video.hlsUrl ?? video.mp4Url;
+    const src = video.videoUrl;
+
     if (!src)
         return (
             <div className="text-center py-10 text-red-500">
@@ -128,8 +129,7 @@ export default function WatchPage() {
                                     <div className="bg-white dark:bg-transparent rounded flex shadow hover:shadow-md transition">
                                         <img
                                             src={
-                                                video.thumbnailUrl ||
-                                                video.image
+                                                video.thumbnail
                                             }
                                             alt={video.title}
                                             className="w-[50%] xl:h-32 lg:h-28 md:h-24 h-20 object-cover rounded"

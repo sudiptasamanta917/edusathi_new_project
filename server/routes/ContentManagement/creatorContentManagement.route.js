@@ -7,23 +7,31 @@ import Course from "../../models/course.model.js";
 const router = express.Router();
 
 // Utility: Convert S3 URL to HLS master.m3u8 URL
-function convertToHlsUrl(originalUrl, custom) {
-  // Updated regex to match actual S3 URL format: https://s3.ap-south-1.amazonaws.com/bucket-name/videos/userId/videoId.mp4
-  const basePattern = /https:\/\/s3\.ap-south-1\.amazonaws\.com\/([^/]+)\/videos\/([^/]+)\/([^/.]+)\.mp4$/;
-  const match = originalUrl.match(basePattern);
+function convertToHlsUrl(originalUrl) {
   console.log("URL being matched:", originalUrl);
-  console.log("Regex pattern:", basePattern);
 
+  // Match both S3 URL patterns:
+  // 1. https://videos-edusathi.net.s3.ap-south-1.amazonaws.com/videos/<userId>/<videoId>.mp4
+  // 2. https://s3.ap-south-1.amazonaws.com/videos-edusathi.net/videos/<userId>/<videoId>.mp4
+  const pattern = /https:\/\/(?:([a-zA-Z0-9.-]+)\.s3\.ap-south-1\.amazonaws\.com|s3\.ap-south-1\.amazonaws\.com\/([a-zA-Z0-9.-]+))\/videos\/([^/]+)\/([^/.]+)\.mp4$/;
+
+  const match = originalUrl.match(pattern);
   if (!match) {
+    console.error("Invalid S3 URL format:", originalUrl);
     throw new Error("Invalid URL format");
   }
 
-  const bucketName = match[1]; // videos-edusathi.net
-  const videoFolder = match[2]; // userId
-  const videoId = match[3]; // timestamp
+  // Extract bucket name (from either capture group)
+  const bucketName = match[1] || match[2];
+  const userId = match[3];
+  const videoId = match[4];
 
-  return `https://s3.ap-south-1.amazonaws.com/${bucketName}/videos/${videoFolder}/${videoId}/hls/master.m3u8`;
+  const hlsUrl = `https://${bucketName}.s3.ap-south-1.amazonaws.com/videos/${userId}/${videoId}/hls/master.m3u8`;
+  console.log("HLS URL generated:", hlsUrl);
+
+  return hlsUrl;
 }
+
 
 // Convert boolean-like values safely
 function parseBoolean(value) {
@@ -364,6 +372,94 @@ router.get("/videos/:id/analytics", authenticateToken, requireRole(['creator']),
       error: error.message || "Failed to retrieve video analytics"
     });
   }
+});
+
+router.get("/all-videos", async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 10,
+            course,
+            isPublic,
+            isPremium,
+            sortBy = "createdAt",
+            sortOrder = "desc",
+            search,
+            creator,
+        } = req.query;
+
+        // Debug: Check total videos in database
+        const totalAllVideos = await Video.countDocuments({});
+        const totalActiveVideos = await Video.countDocuments({
+            isActive: { $ne: false },
+        });
+        const totalInactiveVideos = await Video.countDocuments({
+            isActive: false,
+        });
+
+        console.log("=== VIDEO DEBUG INFO ===");
+        console.log("Total videos in DB:", totalAllVideos);
+        console.log("Active videos:", totalActiveVideos);
+        console.log("Inactive videos:", totalInactiveVideos);
+
+        // Build filter object
+        const filter = {
+            // Temporarily remove isActive filter for debugging
+            // isActive: { $ne: false } // Only active videos
+        };
+
+        // Add filters
+        if (course) filter.course = course;
+        if (isPublic !== undefined) filter.isPublic = parseBoolean(isPublic);
+        if (isPremium !== undefined) filter.isPremium = parseBoolean(isPremium);
+        if (creator) filter.creator = creator; // Filter by specific creator
+
+        if (search) {
+            filter.$or = [
+                { title: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        // Calculate pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const sortOptions = {};
+        sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+        // Get videos with creator and course info
+        const videos = await Video.find(filter)
+            .populate("course", "title subject grade level")
+            .populate("creator", "firstName lastName email profilePicture")
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(parseInt(limit))
+            .select("-__v");
+
+        // Get total count
+        const totalVideos = await Video.countDocuments(filter);
+        const totalPages = Math.ceil(totalVideos / parseInt(limit));
+
+        res.status(200).json({
+            status: true,
+            message: "All videos retrieved successfully",
+            data: {
+                videos,
+                pagination: {
+                    currentPage: parseInt(page),
+                    totalPages,
+                    totalVideos,
+                    hasNextPage: parseInt(page) < totalPages,
+                    hasPrevPage: parseInt(page) > 1,
+                },
+            },
+        });
+    } catch (error) {
+        console.error("Get all videos error:", error);
+        res.status(500).json({
+            status: false,
+            error: error.message || "Failed to retrieve all videos",
+        });
+    }
 });
 
 // Increment video views

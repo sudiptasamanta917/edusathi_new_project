@@ -7,11 +7,12 @@ export type Video = {
   reviews?: string;
   price?: string;
   originalPrice?: string;
-  image?: string;
+  thumbnail?: string;
   isPremium?: boolean;
   isBestseller?: boolean;
   isFree?: boolean;
-  // IMPORTANT: backend should return one (or both) of these
+  // IMPORTANT: backend should return one
+  videoUrl?: string;
   hlsUrl?: string; // .m3u8
   mp4Url?: string; // direct mp4 fallback
   description?: string;

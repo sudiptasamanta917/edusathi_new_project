@@ -91,7 +91,7 @@ export default function WatchPage() {
                     <div className="mt-4 md:pl-10 md:pr-6 px-5">
                         <VideoPlayer
                             src={src}
-                            poster={video.image}
+                            poster={video.thumbnail}
                             autoPlay={true}
                         />
                     </div>

@@ -2,15 +2,6 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, Filter } from "lucide-react";
 
-
-
-import freeCourseImage1 from "../../../src/assets/courseImages/freeCourseImages/maxresdefault (1).jpg";
-import freeCourseImage2 from "../../../src/assets/courseImages/freeCourseImages/maxresdefault (2).jpg";
-import freeCourseImage3 from "../../../src/assets/courseImages/freeCourseImages/maxresdefault (3).jpg";
-import freeCourseImage4 from "../../../src/assets/courseImages/freeCourseImages/maxresdefault (4).jpg";
-import freeCourseImage5 from "../../../src/assets/courseImages/freeCourseImages/maxresdefault (5).jpg";
-import freeCourseImage6 from "../../../src/assets/courseImages/freeCourseImages/maxresdefault.jpg";
-
 type Video = {
     _id: string;
     title: string;
@@ -277,7 +268,7 @@ export default function AllVideos() {
                                             "/placeholder.jpg"
                                         }
                                         alt={video.title}
-                                        className="w-full h-40 object-cover border border-gray-300 dark:border-gray-50 rounded-md"
+                                        className="w-full h-40 object-cover border border-gray-300 dark:border-gray-50"
                                     />
                                     <div className="p-4">
                                         <h3 className="text-base font-semibold truncate dark:text-white">

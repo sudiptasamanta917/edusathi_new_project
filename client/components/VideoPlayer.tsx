@@ -30,7 +30,8 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
         setError(null);
         setLoading(true);
 
-        const isHls = src.endsWith(".m3u8");
+    // more robust HLS detection: consider query params and content-type hints
+    const isHls = /\.m3u8(\?|$)/i.test(src) || src.includes("hls") || src.includes("m3u8");
 
         if (isHls && Hls.isSupported()) {
             const hls = new Hls();
@@ -70,14 +71,28 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
                     }
                 }
             });
-        } else {
+        } else if (isHls && video.canPlayType && video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (iOS/Safari). Set src directly and let the browser handle m3u8.
             video.src = src;
             video.onloadedmetadata = () => {
                 setLoading(false);
                 if (autoPlay) video.play().catch(() => {});
             };
-            video.onerror = () => {
-                setError("Video failed to load.");
+            video.onerror = (e) => {
+                console.error('Native HLS playback error', e);
+                setError('Video failed to load (native HLS).');
+                setLoading(false);
+            };
+        } else {
+            // Non-HLS or if Hls.js is not supported
+            video.src = src;
+            video.onloadedmetadata = () => {
+                setLoading(false);
+                if (autoPlay) video.play().catch(() => {});
+            };
+            video.onerror = (e) => {
+                console.error('Video playback error', e);
+                setError('Video failed to load. If this is an HLS stream, the browser may not support it and Hls.js is unavailable.');
                 setLoading(false);
             };
         }
@@ -106,6 +121,8 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
         setCurrentQuality(height);
         setShowMenu(false);
     };
+
+    console.log(videoRef);
 
     return (
         <div className="relative w-full mx-auto">

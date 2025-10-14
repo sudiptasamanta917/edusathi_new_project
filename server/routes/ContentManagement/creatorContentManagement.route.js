@@ -6,34 +6,27 @@ import Course from "../../models/course.model.js";
 
 const router = express.Router();
 
-// Utility: Convert S3 URL to HLS master.m3u8 URL
+// Utility: Convert S3 MP4 URL → proper HLS master.m3u8 URL
 function convertToHlsUrl(originalUrl) {
-  console.log("URL being matched:", originalUrl);
+  if (!originalUrl) return originalUrl;
 
-  // Match both S3 URL patterns:
+  // Match both S3 URL formats:
   // 1. https://videos-edusathi.net.s3.ap-south-1.amazonaws.com/videos/<userId>/<videoId>.mp4
   // 2. https://s3.ap-south-1.amazonaws.com/videos-edusathi.net/videos/<userId>/<videoId>.mp4
-  const pattern = /https:\/\/(?:([a-zA-Z0-9.-]+)\.s3\.ap-south-1\.amazonaws\.com|s3\.ap-south-1\.amazonaws\.com\/([a-zA-Z0-9.-]+))\/videos\/([^/]+)\/([^/.]+)\.mp4$/;
+  const pattern =
+    /^https:\/\/(?:([a-zA-Z0-9.-]+)\.s3\.ap-south-1\.amazonaws\.com|s3\.ap-south-1\.amazonaws\.com\/([a-zA-Z0-9.-]+))\/videos\/([^/]+)\/([^/.]+)\.mp4$/;
 
   const match = originalUrl.match(pattern);
-  if (!match) {
-    console.error("Invalid S3 URL format:", originalUrl);
-    throw new Error("Invalid URL format");
-  }
+  if (!match) return originalUrl; // Leave as-is if it doesn’t match
 
-  // Extract bucket name (from either capture group)
   const bucketName = match[1] || match[2];
   const userId = match[3];
   const videoId = match[4];
 
-  const hlsUrl = `https://${bucketName}.s3.ap-south-1.amazonaws.com/videos/${userId}/${videoId}/hls/master.m3u8`;
-  console.log("HLS URL generated:", hlsUrl);
-
-  return hlsUrl;
+  return `https://s3.ap-south-1.amazonaws.com/${bucketName}/videos/${userId}/${videoId}/hls/master.m3u8`;
 }
 
-
-// Convert boolean-like values safely
+// Helper: convert string boolean safely
 function parseBoolean(value) {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -41,6 +34,9 @@ function parseBoolean(value) {
   }
   return false;
 }
+
+
+
 
 // Upload a new video (for verified creators)
 router.post("/videos/upload", authenticateToken, requireRole(['creator']),
@@ -86,6 +82,7 @@ router.post("/videos/upload", authenticateToken, requireRole(['creator']),
 
     // --- Generate HLS streaming URL ---
     const hlsUrl = convertToHlsUrl(videoFile.location, process.env.S3_STORAGE_NAME);
+    console.log(hlsUrl);
     
     // --- Handle thumbnail URL ---
     const thumbnailUrl = thumbnailFile ? thumbnailFile.location : null;
@@ -388,32 +385,12 @@ router.get("/all-videos", async (req, res) => {
             creator,
         } = req.query;
 
-        // Debug: Check total videos in database
-        const totalAllVideos = await Video.countDocuments({});
-        const totalActiveVideos = await Video.countDocuments({
-            isActive: { $ne: false },
-        });
-        const totalInactiveVideos = await Video.countDocuments({
-            isActive: false,
-        });
+        const filter = { isActive: { $ne: false } };
 
-        console.log("=== VIDEO DEBUG INFO ===");
-        console.log("Total videos in DB:", totalAllVideos);
-        console.log("Active videos:", totalActiveVideos);
-        console.log("Inactive videos:", totalInactiveVideos);
-
-        // Build filter object
-        const filter = {
-            // Temporarily remove isActive filter for debugging
-            // isActive: { $ne: false } // Only active videos
-        };
-
-        // Add filters
         if (course) filter.course = course;
         if (isPublic !== undefined) filter.isPublic = parseBoolean(isPublic);
         if (isPremium !== undefined) filter.isPremium = parseBoolean(isPremium);
-        if (creator) filter.creator = creator; // Filter by specific creator
-
+        if (creator) filter.creator = creator;
         if (search) {
             filter.$or = [
                 { title: { $regex: search, $options: "i" } },
@@ -421,12 +398,10 @@ router.get("/all-videos", async (req, res) => {
             ];
         }
 
-        // Calculate pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
 
-        // Get videos with creator and course info
         const videos = await Video.find(filter)
             .populate("course", "title subject grade level")
             .populate("creator", "firstName lastName email profilePicture")
@@ -435,9 +410,16 @@ router.get("/all-videos", async (req, res) => {
             .limit(parseInt(limit))
             .select("-__v");
 
-        // Get total count
+        //  Convert all stored .mp4 links → HLS .m3u8 format
+        videos.forEach((video) => {
+            if (video.videoUrl && video.videoUrl.endsWith(".mp4")) {
+                video.videoUrl = convertToHlsUrl(video.videoUrl);
+            }
+        });
+
         const totalVideos = await Video.countDocuments(filter);
         const totalPages = Math.ceil(totalVideos / parseInt(limit));
+        console.log(videos);
 
         res.status(200).json({
             status: true,

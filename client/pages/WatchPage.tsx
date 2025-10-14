@@ -75,6 +75,7 @@ export default function WatchPage() {
     if (!video) return <div className="text-center py-10">Video not found</div>;
 
     const src = video.videoUrl;
+    console.log(src);
 
     if (!src)
         return (
@@ -92,7 +93,7 @@ export default function WatchPage() {
                         <VideoPlayer
                             src={src}
                             poster={video.thumbnail}
-                            autoPlay={true}
+                            autoPlay={false}
                         />
                     </div>
                     <h1 className="text-2xl font-bold mt-3 md:pl-10 md:pr-6 px-5">

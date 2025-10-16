@@ -99,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({ navItems = defaultNavItems }) => {
                             </AvatarFallback>
                         )}
                     </Avatar>
-                    <h2 className="mt-3 font-semibold text-sm text-center">
+                    <h2 className="mt-3 font-semibold text-sm text-center text-white">
                         {user?.name || "Creator"}
                     </h2>
                 </div>

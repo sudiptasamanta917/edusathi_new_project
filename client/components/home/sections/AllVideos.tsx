@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Search, Filter } from "lucide-react";
 
 type Video = {
@@ -8,7 +9,13 @@ type Video = {
     description: string;
     thumbnail: string;
     videoUrl: string;
-    creator: string;
+    creator: {
+        _id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        profilePicture?: string;
+    };
     views: number;
     isPremium?: boolean;
     isPublic?: boolean;
@@ -16,92 +23,12 @@ type Video = {
 };
 
 
-// const allVideos: Video[] = [
-//     {
-//         id: "1",
-//         title: "Intro to HTML",
-//         author: "Jane Doe",
-//         rating: 4.6,
-//         reviews: "100,000",
-//         price: "Free",
-//         originalPrice: "₹1,499",
-//         image: freeCourseImage1,
-//         isFree: true,
-//         isBestseller: true,
-//         hlsUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-//     },
-//     {
-//         id: "2",
-//         title: "Intro to HTML",
-//         author: "Jane Doe",
-//         rating: 4.6,
-//         reviews: "100,000",
-//         price: "Free",
-//         originalPrice: "₹1,499",
-//         image: freeCourseImage2,
-//         isFree: true,
-//         isBestseller: true,
-//         hlsUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-//     },
-//     {
-//         id: "3",
-//         title: "Intro to HTML",
-//         author: "Jane Doe",
-//         rating: 4.6,
-//         reviews: "100,000",
-//         price: "Free",
-//         originalPrice: "₹1,499",
-//         image: freeCourseImage3,
-//         isFree: true,
-//         isBestseller: true,
-//         hlsUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-//     },
-//     {
-//         id: "4",
-//         title: "Intro to HTML",
-//         author: "Jane Doe",
-//         rating: 4.6,
-//         reviews: "100,000",
-//         price: "Free",
-//         originalPrice: "₹1,499",
-//         image: freeCourseImage4,
-//         isFree: true,
-//         isBestseller: true,
-//         hlsUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-//     },
-//     {
-//         id: "5",
-//         title: "Intro to HTML",
-//         author: "Jane Doe",
-//         rating: 4.6,
-//         reviews: "100,000",
-//         price: "Free",
-//         originalPrice: "₹1,499",
-//         image: freeCourseImage5,
-//         isFree: true,
-//         isBestseller: true,
-//         hlsUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-//     },
-//     {
-//         id: "6",
-//         title: "Intro to HTML",
-//         author: "Jane Doe",
-//         rating: 4.6,
-//         reviews: "100,000",
-//         price: "Free",
-//         originalPrice: "₹1,499",
-//         image: freeCourseImage5,
-//         isFree: true,
-//         isBestseller: true,
-//         hlsUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-//     },
-// ];
-
 export default function AllVideos() {
     const [videos, setVideos] = useState<Video[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAll, setShowAll] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
+    const navigate = useNavigate();
 
     const ROWS_BEFORE_SHOW_ALL = 2;
     const VIDEOS_PER_ROW = 5;
@@ -111,19 +38,6 @@ export default function AllVideos() {
         ? videos
         : videos.slice(0, initialVisibleCount);
 
-    // Uncomment and use for backend api
-    // useEffect(() => {
-    //     setLoading(true);
-    //     fetch(
-    //         "https://api.allorigins.win/raw?url=https://mocki.io/v1/4b27d6f3-5c19-4f85-bc0e-5a646a1e55c1"
-    //     )
-    //         .then((res) => res.json())
-    //         .then((data) => {
-    //             setVideos(Array.isArray(data) ? data : data.videos || []);
-    //             setLoading(false);
-    //         })
-    //         .catch(() => setLoading(false));
-    // }, []);
 
     useEffect(() => {
         const fetchVideos = async () => {
@@ -173,6 +87,10 @@ export default function AllVideos() {
 
         fetchVideos();
     }, []);
+
+    const handleVideoClick = (video: Video) => {
+        navigate(`/video-details/${video._id}`, { state: { video } });
+    };
 
 
     if (loading) {
@@ -255,10 +173,9 @@ export default function AllVideos() {
                 >
                     <div className="grid 2xl:grid-cols-6 lg:grid-cols-5 md:grid-cols-4 sm:grid-cols-3 grid-cols-2 gap-4">
                         {visibleVideos.map((video) => (
-                            <Link
+                            <div
                                 key={video._id}
-                                to={`/watch/${video._id}`}
-                                state={{ video }}
+                                onClick={() => handleVideoClick(video)}
                                 className="block"
                             >
                                 <div className="bg-white dark:bg-transparent transition">
@@ -275,7 +192,8 @@ export default function AllVideos() {
                                             {video.title}
                                         </h3>
                                         <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                                            {video.description}
+                                            {video.creator.firstName}{" "}
+                                            {video.creator.lastName}
                                         </p>
 
                                         <div className="flex mt-3 space-x-2">
@@ -291,7 +209,7 @@ export default function AllVideos() {
                                         </div>
                                     </div>
                                 </div>
-                            </Link>
+                            </div>
                         ))}
                     </div>
                 </div>

@@ -64,6 +64,8 @@ export default function DashboardLogin() {
                         localStorage.setItem('refresh_token', data.refresh_token || '');
                         localStorage.setItem('accessToken', data.access_token);
                         localStorage.setItem('refreshToken', data.refresh_token || '');
+                        console.log(data.access_token);
+                        console.log(data.refresh_token);
                         if (data.user) {
                             localStorage.setItem('user', JSON.stringify(data.user));
                             localStorage.setItem('userRole', data.user.role || 'admin');

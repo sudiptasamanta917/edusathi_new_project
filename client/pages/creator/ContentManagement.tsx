@@ -10,6 +10,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { ContentAPI } from "../../Api/api";
 import Sidebar from "./SideBar";
+import CreateCourse from "./CreateCourse";
 
 interface Video {
     id: number;
@@ -18,6 +19,17 @@ interface Video {
     views: number;
     comments: number;
     likes: number;
+}
+
+interface Course {
+    title: string;
+    description: string;
+    subject: string;
+    grade: string;
+    level: string;
+    thumbnail: string;
+    isPaid: boolean;
+    price?: number;
 }
 
 type UploadResponse = {
@@ -47,6 +59,19 @@ const ContentManagement: React.FC = () => {
     const [isPublic, setIsPublic] = useState<boolean>(true);
     const [uploadProgress, setUploadProgress] = useState<number>(0);
     const [loading, setLoading] = useState<boolean>(false);
+
+    const [course, setCourse] = useState<Course>({
+        title: "",
+        description: "",
+        subject: "",
+        grade: "",
+        level: "",
+        thumbnail: "",
+        isPaid: false,
+        price: 0,
+    });
+      const [loading1, setLoading1] = useState(false);
+      const [message, setMessage] = useState("");
 
     // Fetch videos & playlists from backend API
     useEffect(() => {
@@ -78,12 +103,12 @@ const ContentManagement: React.FC = () => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
     setSelectedFile(f);
-  };
+    };
 
-  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null;
-    setThumbnail(f);
-  };
+    const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0] ?? null;
+        setThumbnail(f);
+    };
 
     const handleUpload = async () => {
         if (!selectedFile) {
@@ -201,7 +226,9 @@ const ContentManagement: React.FC = () => {
         <div className="flex min-h-screen bg-[#282828] text-white">
             <Sidebar />
             <div className="p-6 w-full">
-                <h1 className="text-2xl font-bold mb-6">Content Management</h1>
+                <h1 className="text-2xl font-bold mb-6 text-white">
+                    Content Management
+                </h1>
 
                 <div className="grid grid-cols-2 gap-6">
                     <div className="">
@@ -386,6 +413,13 @@ const ContentManagement: React.FC = () => {
                     </div>
 
                     <div className="">
+                        {/* Course Creation Section */}
+                        <CreateCourse
+                            onSuccess={(course) =>
+                                console.log("Created:", course)
+                            }
+                        />
+                        
                         {/* Playlist Section */}
                         <Card className="bg-[#282828] mb-6">
                             <CardHeader>

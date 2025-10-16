@@ -4,6 +4,7 @@ import { authenticateToken, requireRole } from "../../middleware/auth.js";
 import Video from "../../models/video.model.js";
 import Course from "../../models/course.model.js";
 
+
 const router = express.Router();
 
 // Utility: Convert S3 MP4 URL → proper HLS master.m3u8 URL
@@ -23,7 +24,7 @@ function convertToHlsUrl(originalUrl) {
   const userId = match[3];
   const videoId = match[4];
 
-  return `https://s3.ap-south-1.amazonaws.com/${bucketName}/videos/${userId}/${videoId}/hls/master.m3u8`;
+  return `https://s3.ap-south-1.amazonaws.com/${process.env.S3_STORAGE_NAME}/videos/${userId}/${videoId}/hls/master.m3u8`;
 }
 
 // Helper: convert string boolean safely
@@ -36,7 +37,80 @@ function parseBoolean(value) {
 }
 
 
+// create a new course (for verified creators).............
+router.post(
+    "/courses/create",
+    authenticateToken,
+    requireRole(["creator"]),
+    async (req, res) => {
+        try {
+            const creatorId = req.user.id || req.user._id;
 
+            const {
+                title,
+                description,
+                shortDescription,
+                subject,
+                grade,
+                level,
+                thumbnail,
+                previewVideo,
+                isPaid,
+                price,
+                currency,
+                maxStudents,
+            } = req.body;
+
+            // Validate required fields
+            if (
+                !title ||
+                !description ||
+                !subject ||
+                !grade ||
+                !level ||
+                !thumbnail
+            ) {
+                return res.status(400).json({
+                    status: false,
+                    error: "Missing required fields: title, description, subject, grade, level, thumbnail",
+                });
+            }
+
+            // Create new course
+            const course = new Course({
+                title,
+                description,
+                shortDescription,
+                subject,
+                grade,
+                level,
+                thumbnail,
+                previewVideo,
+                creator: creatorId,
+                isPaid: isPaid || false,
+                price: isPaid ? price || 0 : 0,
+                currency: currency || "INR",
+                maxStudents,
+                playlists: [], // Initialize empty playlists array
+                isPublished: false, // Default to unpublished
+            });
+
+            await course.save();
+
+            res.status(201).json({
+                status: true,
+                message: "Course created successfully",
+                data: course,
+            });
+        } catch (error) {
+            console.error("Create course error:", error);
+            res.status(500).json({
+                status: false,
+                error: error.message || "Failed to create course",
+            });
+        }
+    }
+);
 
 // Upload a new video (for verified creators)
 router.post("/videos/upload", authenticateToken, requireRole(['creator']),

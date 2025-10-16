@@ -91,6 +91,8 @@ export default function WatchPage() {
                 <div className="2xl:w-[75%] xl:w-[73%] md:w-[70%] mt-20">
                     <div className="mt-4 md:pl-10 md:pr-6 px-5">
                         <VideoPlayer
+                            // src="https://s3.ap-south-1.amazonaws.com/temp-row-videos-edusathi.net/videos/68efa6b42f1c8ac4dd01b575/1760536259482/hls/master.m3u8WatchPage.tsx:78 "
+                            // src="https://s3.ap-south-1.amazonaws.com/videos-edusathi.net/videos/68efa6b42f1c8ac4dd01b575/1760536259482/hls/master.m3u8"
                             src={src}
                             poster={video.thumbnail}
                             autoPlay={false}
@@ -129,9 +131,7 @@ export default function WatchPage() {
                                 >
                                     <div className="bg-white dark:bg-transparent rounded flex shadow hover:shadow-md transition">
                                         <img
-                                            src={
-                                                video.thumbnail
-                                            }
+                                            src={video.thumbnail}
                                             alt={video.title}
                                             className="w-[50%] xl:h-32 lg:h-28 md:h-24 h-20 object-cover rounded"
                                         />

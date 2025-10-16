@@ -41,6 +41,7 @@ import PriceManagement from "./pages/business/PriceManagement";
 import DashboardLogin from "./pages/EdusathiDashboard/DashboardLogin";
 import Invest from "./pages/Investment/invest";
 import WatchPage from "./pages/WatchPage";
+import VideoDetails from "./pages/VideoDetails";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,7 @@ const router = createBrowserRouter(
             <Route path="/auth" element={<Auth />} />
             <Route path="/invest" element={<Invest />} />
             <Route path="/watch/:id" element={<WatchPage />} />
+            <Route path="/video-details/:id" element={<VideoDetails />} />
             <Route
                 path="/student"
                 element={

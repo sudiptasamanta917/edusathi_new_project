@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { Star, Upload } from "lucide-react";
 import Sidebar from "./SideBar";
+import VideoGrid from "@/components/home/sections/VideoGrid";
 
 import {
     Card,
@@ -39,6 +41,7 @@ interface Analytics {
 export default function CreatorDashboard() {
     const { user } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
     // Initial placeholder states for frontend
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -94,7 +97,7 @@ export default function CreatorDashboard() {
 
             {/* Main Content */}
             <main className="flex-1 p-6 overflow-y-auto">
-                <h1 className="text-2xl font-bold mb-6">Creator Dashboard</h1>
+                <h1 className="text-2xl font-bold mb-6 text-white">Creator Dashboard</h1>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Upload section */}
@@ -104,7 +107,13 @@ export default function CreatorDashboard() {
                             <p className="text-center text-gray-300 mb-3">
                                 Upload and publish a video.
                             </p>
-                            <Button>Upload Videos</Button>
+                            <Button
+                                onClick={() =>
+                                    navigate("/dashboard/creator/contents")
+                                }
+                            >
+                                Upload Videos
+                            </Button>
                         </CardContent>
                     </Card>
 
@@ -129,7 +138,12 @@ export default function CreatorDashboard() {
                                 <p>Views: {analytics.views}</p>
                                 <p>Watch time (hours): {analytics.watchTime}</p>
                             </div>
-                            <Button className="mt-4 w-full">
+                            <Button
+                                className="mt-4 w-full"
+                                onClick={() =>
+                                    navigate("/dashboard/creator/analytics")
+                                }
+                            >
                                 Go to analytics page
                             </Button>
                         </CardContent>
@@ -234,6 +248,14 @@ export default function CreatorDashboard() {
                         </CardContent>
                     </Card>
                 </div>
+                <VideoGrid
+                    title="All Courses"
+                    apiEndpoint={`${import.meta.env.VITE_SERVER_URL}/api/creator/all-videos`}
+                    videosPerRow={5}
+                    rowsBeforeShowAll={2}
+                    showFilters
+                    enableSearch
+                />
             </main>
         </div>
     );

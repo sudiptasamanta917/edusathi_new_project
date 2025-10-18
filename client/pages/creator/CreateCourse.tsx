@@ -31,7 +31,17 @@ const CreateCourse: React.FC<CreateCourseProps> = ({ onSuccess }) => {
     });
     const [loading, setLoading] = useState(false);
 
-    // Handle input changes
+    // Example enum lists
+    const subjects = [
+        "Programming",
+        "Mathematics",
+        "Science",
+        "Arts",
+        "Business",
+    ];
+    const grades = ["High School", "Undergraduate", "Postgraduate"];
+    const levels = ["Beginner", "Intermediate", "Advanced"];
+
     const handleChange = (
         e: React.ChangeEvent<
             HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -44,15 +54,16 @@ const CreateCourse: React.FC<CreateCourseProps> = ({ onSuccess }) => {
         }));
     };
 
-    // Handle form submit
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
+            console.log("Submitting course data:", course);
             const response = await CourseAPI.createCourse(course);
+            console.log("Create course API response:", response);
 
-            if (response.status) {
+            if (response?.status) {
                 alert(" Course created successfully!");
                 setCourse({
                     title: "",
@@ -66,11 +77,16 @@ const CreateCourse: React.FC<CreateCourseProps> = ({ onSuccess }) => {
                 });
                 onSuccess?.(course);
             } else {
-                alert(response.error || " Failed to create course");
+                alert(
+                    response?.error ||
+                        " Failed to create course — check API or enums"
+                );
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating course:", error);
-            alert(" Something went wrong while creating the course");
+            alert(
+                ` Something went wrong: ${error.message || "Unknown error"}`
+            );
         } finally {
             setLoading(false);
         }
@@ -97,6 +113,7 @@ const CreateCourse: React.FC<CreateCourseProps> = ({ onSuccess }) => {
                         required
                         className="p-2 rounded bg-gray-700 text-white w-full"
                     />
+
                     <textarea
                         name="description"
                         placeholder="Course Description"
@@ -105,33 +122,55 @@ const CreateCourse: React.FC<CreateCourseProps> = ({ onSuccess }) => {
                         required
                         className="p-2 rounded bg-gray-700 text-white w-full"
                     />
-                    <input
-                        type="text"
+
+                    {/* Subject Dropdown */}
+                    <select
                         name="subject"
-                        placeholder="Subject"
                         value={course.subject}
                         onChange={handleChange}
                         required
                         className="p-2 rounded bg-gray-700 text-white w-full"
-                    />
-                    <input
-                        type="text"
+                    >
+                        <option value="">Select Subject</option>
+                        {subjects.map((subj) => (
+                            <option key={subj} value={subj}>
+                                {subj}
+                            </option>
+                        ))}
+                    </select>
+
+                    {/* Grade Dropdown */}
+                    <select
                         name="grade"
-                        placeholder="Grade"
                         value={course.grade}
                         onChange={handleChange}
                         required
                         className="p-2 rounded bg-gray-700 text-white w-full"
-                    />
-                    <input
-                        type="text"
+                    >
+                        <option value="">Select Grade</option>
+                        {grades.map((grd) => (
+                            <option key={grd} value={grd}>
+                                {grd}
+                            </option>
+                        ))}
+                    </select>
+
+                    {/* Level Dropdown */}
+                    <select
                         name="level"
-                        placeholder="Level"
                         value={course.level}
                         onChange={handleChange}
                         required
                         className="p-2 rounded bg-gray-700 text-white w-full"
-                    />
+                    >
+                        <option value="">Select Level</option>
+                        {levels.map((lvl) => (
+                            <option key={lvl} value={lvl}>
+                                {lvl}
+                            </option>
+                        ))}
+                    </select>
+
                     <input
                         type="text"
                         name="thumbnail"

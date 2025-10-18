@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/button";
 import { ContentAPI } from "../../Api/api";
 import Sidebar from "./SideBar";
 import CreateCourse from "./CreateCourse";
+import { CourseAPI } from "@/Api/api";
 
 interface Video {
     id: number;
@@ -22,6 +23,7 @@ interface Video {
 }
 
 interface Course {
+    _id?: string;
     title: string;
     description: string;
     subject: string;
@@ -56,9 +58,12 @@ const ContentManagement: React.FC = () => {
     const [thumbnail, setThumbnail] = useState<File | null>(null);
     const [title, setTitle] = useState<string>("");
     const [description, setDescription] = useState<string>("");
+    const [isPaid, setIsPaid] = useState<string>("");
     const [isPublic, setIsPublic] = useState<boolean>(true);
     const [uploadProgress, setUploadProgress] = useState<number>(0);
     const [loading, setLoading] = useState<boolean>(false);
+    const [courses, setCourses] = useState<any[]>([]);
+    const [selectedcourse, setSelectedcourse] = useState<any[]>([]);
 
     const [course, setCourse] = useState<Course>({
         title: "",
@@ -100,6 +105,26 @@ const ContentManagement: React.FC = () => {
         fetchData();
     }, []);
 
+    useEffect(() => {
+        const fetchCourses = async () => {
+            try {
+                const res = await CourseAPI.getCourses();
+                if (res.status && res.data?.courses) {
+                    setCourses(res.data.courses);
+                } else {
+                    console.error(
+                        "Failed to fetch courses:",
+                        res.error || res.message
+                    );
+                }
+            } catch (err) {
+                console.error("Error fetching courses:", err);
+            }
+        };
+
+        fetchCourses();
+    }, []);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
     setSelectedFile(f);
@@ -129,10 +154,10 @@ const ContentManagement: React.FC = () => {
         }
         formData.append("duration", "360");
         formData.append("quality", "1080p");
-        formData.append("course", "000000000000000000000000"); // Default course ID
+        formData.append("course", course._id || "");
         formData.append("playlistOrder", "1");
         formData.append("isPublic", "true");
-        formData.append("isPremium", "false");
+        formData.append("isPremium", course.isPaid ? "true" : "false");
         formData.append("views", "0");
         formData.append("likes", "0");
 
@@ -142,7 +167,7 @@ const ContentManagement: React.FC = () => {
             console.log("Upload Response:", result);
 
             if (result.status) {
-                alert("✅ Video uploaded successfully!");
+                alert(" Video uploaded successfully!");
                 setVideos([
                     {
                         id: videos.length + 1,
@@ -159,11 +184,11 @@ const ContentManagement: React.FC = () => {
                 setDescription("");
                 setThumbnail(null);
             } else {
-                alert(`❌ Upload failed: ${result.error || result.message}`);
+                alert(` Upload failed: ${result.error || result.message}`);
             }
         } catch (error) {
             console.error("Upload error:", error);
-            alert("⚠️ Something went wrong during upload. Please check your login status.");
+            alert(" Something went wrong during upload. Please check your login status.");
         } finally {
             setLoading(false);
         }
@@ -309,6 +334,89 @@ const ContentManagement: React.FC = () => {
                                 />
                             </div>
 
+                            {/* Course Selection */}
+                            <div className="mb-4 ">
+                                <label className="text-sm text-gray-400 mb-2 block">
+                                    Select Course
+                                </label>
+                                <select
+                                    value={course._id || ""}
+                                    className="bg-[#2a2a2a] text-white border border-gray-50 rounded-lg p-2"
+                                    onChange={(e) => {
+                                        const selected = courses.find(
+                                            (c) => c._id === e.target.value
+                                        );
+                                        if (selected) {
+                                            setCourse({
+                                                _id: selected._id,
+                                                title: selected.title,
+                                                description:
+                                                    selected.description,
+                                                subject: selected.subject,
+                                                grade: selected.grade,
+                                                level: selected.level,
+                                                thumbnail: selected.thumbnail,
+                                                isPaid: selected.isPaid,
+                                                price: selected.price,
+                                            });
+                                        } else {
+                                            setCourse({
+                                                _id: "",
+                                                title: "",
+                                                description: "",
+                                                subject: "",
+                                                grade: "",
+                                                level: "",
+                                                thumbnail: "",
+                                                isPaid: false,
+                                                price: 0,
+                                            });
+                                        }
+                                    }}
+                                >
+                                    <option value="">
+                                        -- Choose a Course --
+                                    </option>
+                                    {courses.map((c) => (
+                                        <option key={c._id} value={c._id}>
+                                            {c.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Free / Premium */}
+                            <div className="mb-4 flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="isPaid"
+                                    checked={course.isPaid}
+                                    disabled // disable manual toggling because it is auto-set
+                                    className="accent-blue-500"
+                                />
+                                <label
+                                    htmlFor="isPaid"
+                                    className="text-sm text-gray-400"
+                                >
+                                    Premium Course
+                                </label>
+                            </div>
+
+                            {/* Price Display */}
+                            {course.isPaid && (
+                                <div className="mb-4">
+                                    <label className="text-sm text-gray-400 mb-2 block">
+                                        Price
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={course.price}
+                                        readOnly
+                                        className="w-full bg-[#2a2a2a] border border-gray-700 rounded-lg p-2 text-white"
+                                    />
+                                </div>
+                            )}
+
                             {/* Visibility */}
                             <div className="flex items-center gap-4 mb-4">
                                 <button
@@ -419,7 +527,7 @@ const ContentManagement: React.FC = () => {
                                 console.log("Created:", course)
                             }
                         />
-                        
+
                         {/* Playlist Section */}
                         <Card className="bg-[#282828] mb-6">
                             <CardHeader>

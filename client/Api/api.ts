@@ -244,7 +244,7 @@ export const ContentAPI = {
 
 // course API...........
 export const CourseAPI = {
-  // 🔹 Get all creator's courses (requires authentication)
+  //  Get all creator courses
   getCourses: () => {
     const headers = authHeaders();
     return request<any>("/api/creator/courses", {
@@ -253,40 +253,20 @@ export const CourseAPI = {
     });
   },
 
-  // 🔹 Create a new course (requires authentication)
+  //  Create a new course (JSON + Token)
   createCourse: (body: any) => {
-    const headers = authHeaders();
-    // Don't set Content-Type for FormData - let browser set it with boundary
-    return request<any>("/api/creator/courses/create", {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify(body),
-    });
-  },
-
-  // 🔹 Update existing course (requires authentication)
-  updateCourse: (id: string, body: any) => {
     const headers = {
       ...authHeaders(),
       "Content-Type": "application/json",
     };
 
-    return request<any>(`/api/creator/courses/${id}`, {
-      method: "PUT",
+    return request<any>("/api/creator/courses/create", {
+      method: "POST",
       headers,
       body: JSON.stringify(body),
     });
   },
-
-  // 🔹 Delete course (requires authentication)
-  deleteCourse: (id: string) => {
-    const headers = authHeaders();
-
-    return request<any>(`/api/creator/courses/${id}`, {
-      method: "DELETE",
-      headers,
-    });
-  },
 };
 
-export const VideoAPI = ContentAPI; // Alias for backwards compatibility
+
+export const VideoAPI = ContentAPI; 

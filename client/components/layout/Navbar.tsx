@@ -339,7 +339,7 @@ export default function Navbar() {
               : "bg-white/80 dark:bg-slate-900/80 backdrop-blur border-transparent"
       }`}
         >
-            <div className="container max-w-[90%] mx-auto px-4 py-2 flex items-center justify-between gap-2">
+            <div className="container xl:w-[90%] w-full mx-auto px-4 py-2 flex items-center justify-between gap-2">
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2 group">
                     {/* <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
@@ -367,14 +367,14 @@ export default function Navbar() {
                             {!link.dropdown ? (
                                 <Link
                                     to={link.to}
-                                    className="px-2 py-2 text-slate-700 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 font-medium rounded-md transition"
+                                    className="px-2 py-2 text-sm 2xl:text-lg text-slate-700 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 font-medium rounded-md transition"
                                 >
                                     {link.label}
                                 </Link>
                             ) : (
                                 // Example dropdown (implement hover/focus popover logic as needed)
                                 <div className="relative group">
-                                    <button className="inline-flex items-center px-2 py-2 text-slate-700 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 font-medium rounded-md transition">
+                                    <button className="inline-flex items-center px-2 py-2 text-sm 2xl:text-lg text-slate-700 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 font-medium rounded-md transition">
                                         {link.label}
                                         <ChevronDown className="ml-1 w-4 h-4" />
                                     </button>
@@ -495,14 +495,14 @@ export default function Navbar() {
                     <Link to="/student" className="hidden md:block">
                         <Button
                             variant="outline"
-                            className="border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-900 rounded-lg"
+                            className="text-sm 2xl:text-lg text-slate-800 dark:text-slate-900 2xl:px-5 px-4 rounded-sm"
                         >
                             Student login
                         </Button>
                     </Link>
                     <Link to="/invest" className="hidden md:block">
-                        <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 rounded-lg transition-all">
-                            Start for free
+                        <Button className="bg-green-600 hover:bg-green-700 text-sm 2xl:text-lg text-white font-semibold 2xl:px-5 px-4 rounded-sm transition-all">
+                            Invest Now
                         </Button>
                     </Link>
                     {/* Mobile Menu button */}

@@ -9,6 +9,12 @@ type Video = {
     description: string;
     thumbnail: string;
     videoUrl: string;
+    course: {
+        _id: string;
+        title: string;
+        isPaid: boolean;
+        price: number;
+    };
     creator: {
         _id: string;
         firstName: string;
@@ -65,6 +71,7 @@ export default function AllVideos() {
                         thumbnail: v.thumbnail,
                         videoUrl: v.videoUrl,
                         creator: v.creator,
+                        course: v.course,
                         views: v.views ?? 0,
                         isPremium: v.isPremium,
                         isPublic: v.isPublic,

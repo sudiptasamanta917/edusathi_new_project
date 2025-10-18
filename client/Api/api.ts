@@ -212,6 +212,12 @@ export const AuthAPI = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
+  google: (payload: { id_token: string; role?: string }) =>
+    request<any>("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
   getProfile: () => apiGet<any>("/api/auth/profile"),
   updateAvatar: (formData: FormData) => request<any>("/api/auth/avatar", {
     method: "PUT",
@@ -290,3 +296,8 @@ export const CourseAPI = {
 };
 
 export const VideoAPI = ContentAPI; // Alias for backwards compatibility
+export const StudentAPI = {
+  createOrder: (items: Array<{ contentId: string }>) => apiPost<any>("/api/student/create-order", { items }),
+  verify: (payload: any) => apiPost<any>("/api/student/verify", payload),
+  myCourses: () => apiGet<any>("/api/student/my-courses"),
+};

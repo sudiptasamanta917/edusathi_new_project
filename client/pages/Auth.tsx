@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Auth() {
   const { toast } = useToast();
+  const googleDivRef = useRef<HTMLDivElement | null>(null);
   const [params] = useSearchParams();
   const role = (params.get("role") || "student").toLowerCase();
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ export default function Auth() {
     setShowPassword(false);
     setShowConfirm(false);
   }, [mode]);
-  const { login, register } = useAuth();
+  const { login, register, loginWithGoogle } = useAuth();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -109,6 +110,44 @@ export default function Auth() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const cId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string | undefined;
+    const gis = (window as any)?.google?.accounts?.id;
+    if (!cId || !gis || !googleDivRef.current) return;
+
+    gis.initialize({
+      client_id: cId,
+      callback: async (response: any) => {
+        try {
+          const credential = response?.credential as string;
+          if (!credential) return;
+          await loginWithGoogle(credential, remember, role);
+          toast({ title: "Signed in", description: "Welcome!" });
+          const redirect = localStorage.getItem("postLoginRedirect");
+          if (redirect) {
+            localStorage.removeItem("postLoginRedirect");
+            navigate(redirect, { replace: true });
+            return;
+          }
+          const storedRole =
+            sessionStorage.getItem("userRole") ||
+            localStorage.getItem("userRole") ||
+            (() => {
+              const u = sessionStorage.getItem("user") || localStorage.getItem("user");
+              try { return u ? (JSON.parse(u)?.role as string | null) : null; } catch { return null; }
+            })() || role;
+          const finalRole = (storedRole || "student").toLowerCase();
+          const path = finalRole === "creator" ? "/creator" : finalRole === "business" ? "/business" : "/student";
+          navigate(path, { replace: true });
+        } catch (err: any) {
+          toast({ title: "Authentication failed", description: err?.message || "Please try again.", variant: "destructive" });
+        }
+      },
+      ux_mode: "popup",
+    });
+    gis.renderButton(googleDivRef.current, { theme: "outline", size: "large", text: "continue_with", width: 320 });
+  }, [role, remember]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-slate-900 dark:to-slate-800 px-4">
@@ -183,6 +222,15 @@ export default function Auth() {
             <Button type="submit" className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700" disabled={isLoading}>
               {isLoading ? (mode === "register" ? "Creating..." : "Signing in...") : (mode === "register" ? "Create account" : "Sign in")}
             </Button>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+              <span className="text-xs text-slate-500 dark:text-slate-400">OR</span>
+              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+            </div>
+            <div className="flex justify-center">
+              <div ref={googleDivRef} />
+            </div>
 
             <div className="text-center text-sm text-slate-600 dark:text-slate-400">
               <Link to={`/get-started`} className="hover:underline text-blue-600 dark:text-blue-400">Change role</Link>

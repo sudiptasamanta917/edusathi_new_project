@@ -478,6 +478,7 @@
 import Navbar from "@/components/layout/Navbar";
 import React from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { StudentAPI } from "@/Api/api";
 
 interface VideoDetailsData {
     _id: string;
@@ -515,6 +516,80 @@ const VideoDetails: React.FC = () => {
 
     const handlePlay = () => {
         navigate(`/watch/${video._id}`, { state: { video } });
+    };
+
+    const handleBuy = async () => {
+        try {
+            const token =
+                sessionStorage.getItem("access_token") ||
+                localStorage.getItem("access_token") ||
+                sessionStorage.getItem("accessToken") ||
+                localStorage.getItem("accessToken");
+            const role =
+                localStorage.getItem("userRole") ||
+                sessionStorage.getItem("userRole");
+
+            if (!token || (role && role !== "student")) {
+                navigate("/auth?role=student");
+                return;
+            }
+
+            const order = await StudentAPI.createOrder([{ contentId: video._id }]);
+            if (!order?.success || !order?.order?.id) {
+                throw new Error("Failed to create order");
+            }
+
+            const options: any = {
+                key: order.key_id,
+                amount: order.order.amount,
+                currency: order.order.currency,
+                name: "Edusathi",
+                description: video.title,
+                order_id: order.order.id,
+                handler: async function (response: any) {
+                    try {
+                        const verification = await StudentAPI.verify({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            orderId: order.serverOrderId,
+                        });
+                        if (verification?.success) {
+                            alert("Payment successful! Redirecting to My Courses...");
+                            navigate("/my-courses", { replace: true });
+                        } else {
+                            alert("Payment verification failed. Please contact support.");
+                        }
+                    } catch (e) {
+                        console.error("Payment verification error:", e);
+                        alert("Payment verification failed. Please contact support.");
+                    }
+                },
+                modal: {
+                    ondismiss: function () {
+                        console.log("Payment modal closed");
+                    },
+                },
+                theme: { color: "#3B82F6" },
+            };
+
+            const startCheckout = () => {
+                const rzp = new (window as any).Razorpay(options);
+                rzp.open();
+            };
+
+            if (!(window as any).Razorpay) {
+                const script = document.createElement("script");
+                script.src = "https://checkout.razorpay.com/v1/checkout.js";
+                script.onload = startCheckout;
+                document.body.appendChild(script);
+            } else {
+                startCheckout();
+            }
+        } catch (error) {
+            console.error("Payment init error:", error);
+            alert("Failed to initiate payment. Please try again.");
+        }
     };
 
     return (
@@ -578,8 +653,11 @@ const VideoDetails: React.FC = () => {
                         </div>
 
                         {video.isPremium ? (
-                            <button className="w-full py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded text-lg transition">
-                                Start Subscription
+                            <button
+                                onClick={handleBuy}
+                                className="w-full py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded text-lg transition"
+                            >
+                                Buy Now
                             </button>
                         ) : (
                             <button

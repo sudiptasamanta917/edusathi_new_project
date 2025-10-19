@@ -33,11 +33,45 @@ const courseSchema = new mongoose.Schema({
         required: true,
         enum: ['Beginner', 'Intermediate', 'Advanced']
     },
+    
+    // Additional Course Information
+    duration: {
+        type: Number, // Duration in hours
+        default: 0
+    },
+    language: {
+        type: String,
+        default: 'English'
+    },
+    difficulty: {
+        type: String,
+        enum: ['Beginner', 'Intermediate', 'Advanced'],
+        default: 'Beginner'
+    },
+    category: {
+        type: String,
+        default: 'General'
+    },
+    tags: [{
+        type: String
+    }],
+    features: [{
+        type: String
+    }],
+    requirements: [{
+        type: String
+    }],
+    targetAudience: [{
+        type: String
+    }],
+    learningOutcomes: [{
+        type: String
+    }],
 
     // Media
     thumbnail: {
         type: String,
-        required: true
+        required: false
     },
     previewVideo: {
         type: String
@@ -84,6 +118,9 @@ const courseSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    originalPrice: {
+        type: Number
+    },
     currency: {
         type: String,
         default: 'INR'
@@ -109,7 +146,15 @@ const courseSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    enrollmentCount: {
+        type: Number,
+        default: 0
+    },
     averageRating: {
+        type: Number,
+        default: 0
+    },
+    totalReviews: {
         type: Number,
         default: 0
     },

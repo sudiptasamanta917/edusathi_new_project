@@ -45,11 +45,13 @@ async function refreshAccessToken() {
     localStorage.getItem("refresh_token") ||
     sessionStorage.getItem("refreshToken") ||
     localStorage.getItem("refreshToken");
-  if (!rt) throw new Error("No refresh_token");
+  // Allow cookie-based refresh even if no stored token is present.
+  const body = rt ? JSON.stringify({ refresh_token: rt }) : undefined;
   const res = await fetch(buildUrl('/api/auth/refresh'), {
     method: "POST",
+    credentials: 'include',
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: rt }),
+    body,
   });
   if (!res.ok) throw new Error("Refresh failed");
   const data = await res.json();
@@ -66,19 +68,24 @@ async function refreshAccessToken() {
   throw new Error("No access_token in refresh response");
 }
 
-async function request<T>(path: string, init: RequestInit, retry = true): Promise<T> {
-  const res = await fetch(buildUrl(path), init);
+async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+  // Ensure cookies are sent (for cookie-based auth) unless explicitly overridden
+  const finalInit: RequestInit = {
+    credentials: 'include',
+    ...init,
+  };
+  const res = await fetch(buildUrl(path), finalInit);
   if (res.status === 401 && retry) {
     try {
       await refreshAccessToken();
-      const headers = new Headers(init.headers as any);
+      const headers = new Headers(finalInit.headers as any);
       const token =
         sessionStorage.getItem("access_token") ||
         localStorage.getItem("access_token") ||
         sessionStorage.getItem("accessToken") ||
         localStorage.getItem("accessToken");
       if (token) headers.set("Authorization", `Bearer ${token}`);
-      return request<T>(path, { ...init, headers }, false);
+      return request<T>(path, { ...finalInit, headers }, false);
     } catch (e) {
       // clear tokens and bubble up
       for (const storage of [localStorage, sessionStorage]) {
@@ -218,6 +225,14 @@ export const AuthAPI = {
     headers: authHeaders(),
     body: formData,
   }),
+  
+  // Creator-specific auth
+  creatorLogin: (payload: { email: string; password: string }) =>
+    request<any>("/api/creator/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
 };
 
 // Admin
@@ -266,7 +281,90 @@ export const CourseAPI = {
       body: JSON.stringify(body),
     });
   },
+
+  // Create playlist in a course
+  createPlaylist: (courseId: string, body: any) => {
+    const headers = {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    };
+
+    return request<any>(`/api/creator/courses/${courseId}/playlists`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+  },
+
+  // Get playlists for a course
+  getPlaylists: (courseId: string) => {
+    const headers = authHeaders();
+    return request<any>(`/api/creator/courses/${courseId}/playlists`, {
+      method: "GET",
+      headers,
+    });
+  },
+
+  // Add video to playlist
+  addVideoToPlaylist: (courseId: string, playlistId: string, videoId: string) => {
+    const headers = {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    };
+
+    return request<any>(`/api/creator/courses/${courseId}/playlists/${playlistId}/videos`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ videoId }),
+    });
+  },
+
+  // Remove video from playlist
+  removeVideoFromPlaylist: (courseId: string, playlistId: string, videoId: string) => {
+    const headers = authHeaders();
+    return request<any>(`/api/creator/courses/${courseId}/playlists/${playlistId}/videos/${videoId}`, {
+      method: "DELETE",
+      headers,
+    });
+  },
+
+  // Update video order in playlist
+  updateVideoOrder: (courseId: string, playlistId: string, videoOrder: string[]) => {
+    const headers = {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    };
+
+    return request<any>(`/api/creator/courses/${courseId}/playlists/${playlistId}/videos/reorder`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ videoOrder }),
+    });
+  },
 };
 
 
-export const VideoAPI = ContentAPI; 
+export const VideoAPI = ContentAPI;
+
+// Public API for getting all courses
+export const PublicAPI = {
+  // Get all courses from all creators (public endpoint)
+  getAllCourses: () => {
+    return request<any>("/api/creator/public/courses", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
+
+  // Get course by ID (public endpoint)
+  getCourseById: (courseId: string) => {
+    return request<any>(`/api/creator/public/courses/${courseId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
+}; 

@@ -51,7 +51,7 @@ interface Playlist {
 
 const ContentManagement: React.FC = () => {
     const [videos, setVideos] = useState<Video[]>([]);
-    const [playlists, setPlaylists] = useState<Playlist[]>([]);
+    const [playlists, setPlaylists] = useState<any[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [newPlaylistName, setNewPlaylistName] = useState("");
     const [newPlaylistDesc, setNewPlaylistDesc] = useState("");
@@ -64,6 +64,7 @@ const ContentManagement: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [courses, setCourses] = useState<any[]>([]);
     const [selectedcourse, setSelectedcourse] = useState<any[]>([]);
+    const [selectedCourseForPlaylist, setSelectedCourseForPlaylist] = useState<string>("");
 
     const [course, setCourse] = useState<Course>({
         title: "",
@@ -86,6 +87,7 @@ const ContentManagement: React.FC = () => {
                 if (videosData.status && videosData.data?.videos) {
                     const formattedVideos = videosData.data.videos.map((v: any, index: number) => ({
                         id: index + 1,
+                        _id: v._id, // Add video _id for playlist operations
                         title: v.title,
                         date: new Date(v.createdAt).toLocaleDateString(),
                         views: v.views || 0,
@@ -105,25 +107,168 @@ const ContentManagement: React.FC = () => {
         fetchData();
     }, []);
 
-    useEffect(() => {
-        const fetchCourses = async () => {
-            try {
-                const res = await CourseAPI.getCourses();
-                if (res.status && res.data?.courses) {
-                    setCourses(res.data.courses);
-                } else {
-                    console.error(
-                        "Failed to fetch courses:",
-                        res.error || res.message
-                    );
-                }
-            } catch (err) {
-                console.error("Error fetching courses:", err);
+    const fetchCourses = async () => {
+        try {
+            console.log("Fetching courses...");
+            const res = await CourseAPI.getCourses();
+            console.log("Course API response:", res);
+            if (res.status && res.data?.courses) {
+                console.log("Setting courses:", res.data.courses);
+                setCourses(res.data.courses);
+            } else {
+                console.error(
+                    "Failed to fetch courses:",
+                    res.error || res.message
+                );
             }
-        };
+        } catch (err) {
+            console.error("Error fetching courses:", err);
+        }
+    };
 
+    useEffect(() => {
         fetchCourses();
     }, []);
+
+    // Playlist functions
+    const fetchPlaylists = async (courseId: string) => {
+        try {
+            console.log("Fetching playlists for course:", courseId);
+            const res = await CourseAPI.getPlaylists(courseId);
+            console.log("Playlist API response:", res);
+            if (res.status && res.data?.playlists) {
+                setPlaylists(res.data.playlists);
+            } else {
+                console.error("Failed to fetch playlists:", res.error || res.message);
+                setPlaylists([]);
+            }
+        } catch (err) {
+            console.error("Error fetching playlists:", err);
+            setPlaylists([]);
+        }
+    };
+
+    const handleCreatePlaylist = async () => {
+        if (!selectedCourseForPlaylist) {
+            alert("Please select a course first");
+            return;
+        }
+        if (!newPlaylistName.trim()) {
+            alert("Please enter a playlist name");
+            return;
+        }
+
+        try {
+            const playlistData = {
+                title: newPlaylistName.trim(),
+                description: newPlaylistDesc.trim()
+            };
+
+            console.log("Creating playlist:", playlistData);
+            const res = await CourseAPI.createPlaylist(selectedCourseForPlaylist, playlistData);
+            console.log("Create playlist response:", res);
+
+            if (res.status) {
+                alert("Playlist created successfully!");
+                setNewPlaylistName("");
+                setNewPlaylistDesc("");
+                // Refresh playlists for the selected course
+                fetchPlaylists(selectedCourseForPlaylist);
+            } else {
+                alert(res.error || "Failed to create playlist");
+            }
+        } catch (error: any) {
+            console.error("Error creating playlist:", error);
+            alert(`Error creating playlist: ${error.message || "Unknown error"}`);
+        }
+    };
+
+    // Fetch playlists when course selection changes
+    useEffect(() => {
+        if (selectedCourseForPlaylist) {
+            fetchPlaylists(selectedCourseForPlaylist);
+        } else {
+            setPlaylists([]);
+        }
+    }, [selectedCourseForPlaylist]);
+
+    // Add video to playlist function
+    const handleAddVideoToPlaylist = async (videoId: string, playlistId: string) => {
+        if (!selectedCourseForPlaylist) {
+            alert("Please select a course first");
+            return;
+        }
+
+        const selectedPlaylist = playlists.find(p => p._id === playlistId);
+        if (!selectedPlaylist) {
+            alert("Playlist not found");
+            return;
+        }
+
+        try {
+            console.log("Adding video to playlist:", {
+                courseId: selectedCourseForPlaylist,
+                playlistId: selectedPlaylist._id,
+                videoId: videoId,
+                playlistTitle: selectedPlaylist.title
+            });
+
+            const res = await CourseAPI.addVideoToPlaylist(
+                selectedCourseForPlaylist,
+                selectedPlaylist._id,
+                videoId
+            );
+
+            console.log("Add video to playlist response:", res);
+
+            if (res.status) {
+                alert(`Video added to "${selectedPlaylist.title}" successfully!`);
+                // Refresh playlists to show updated video count
+                fetchPlaylists(selectedCourseForPlaylist);
+            } else {
+                alert(res.error || "Failed to add video to playlist");
+            }
+        } catch (error: any) {
+            console.error("Error adding video to playlist:", error);
+            alert(`Error: ${error.message || "Unknown error"}`);
+        }
+    };
+
+    // Move video up/down in playlist
+    const handleMoveVideo = async (playlistId: string, videoIndex: number, direction: 'up' | 'down') => {
+        const playlist = playlists.find(p => p._id === playlistId);
+        if (!playlist || !playlist.videos) return;
+
+        const newVideos = [...playlist.videos];
+        const newIndex = direction === 'up' ? videoIndex - 1 : videoIndex + 1;
+
+        // Check bounds
+        if (newIndex < 0 || newIndex >= newVideos.length) return;
+
+        // Swap videos
+        [newVideos[videoIndex], newVideos[newIndex]] = [newVideos[newIndex], newVideos[videoIndex]];
+
+        try {
+            // Get video IDs for API call
+            const videoOrder = newVideos.map(video => video._id || video);
+
+            const res = await CourseAPI.updateVideoOrder(
+                selectedCourseForPlaylist,
+                playlistId,
+                videoOrder
+            );
+
+            if (res.status) {
+                // Refresh playlists to show updated order
+                fetchPlaylists(selectedCourseForPlaylist);
+            } else {
+                alert(res.error || "Failed to update video order");
+            }
+        } catch (error: any) {
+            console.error("Error updating video order:", error);
+            alert(`Error: ${error.message || "Unknown error"}`);
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -154,10 +299,9 @@ const ContentManagement: React.FC = () => {
         }
         formData.append("duration", "360");
         formData.append("quality", "1080p");
-        formData.append("course", course._id || "");
         formData.append("playlistOrder", "1");
         formData.append("isPublic", "true");
-        formData.append("isPremium", course.isPaid ? "true" : "false");
+        formData.append("isPremium", "false");
         formData.append("views", "0");
         formData.append("likes", "0");
 
@@ -194,58 +338,6 @@ const ContentManagement: React.FC = () => {
         }
     };
 
-    const handleCreatePlaylist = async () => {
-        if (!newPlaylistName) return;
-
-        // Placeholder for API call
-        // const res = await fetch("/api/playlists", {
-        //   method: "POST",
-        //   body: JSON.stringify({ name: newPlaylistName, description: newPlaylistDesc }),
-        // });
-        // const newPlaylist = await res.json();
-
-        const newPlaylist: Playlist = {
-            id: playlists.length + 1,
-            name: newPlaylistName,
-            description: newPlaylistDesc,
-            videos: [],
-        };
-
-        setPlaylists([newPlaylist, ...playlists]);
-        setNewPlaylistName("");
-        setNewPlaylistDesc("");
-    };
-
-    const handleEditPlaylist = async (
-        playlistId: number,
-        name: string,
-        desc: string
-    ) => {
-        // Placeholder for API call
-        // await fetch(`/api/playlists/${playlistId}`, { method: "PUT", body: JSON.stringify({ name, desc }) });
-
-        setPlaylists(
-            playlists.map((pl) =>
-                pl.id === playlistId ? { ...pl, name, description: desc } : pl
-            )
-        );
-    };
-
-    const handleAddVideoToPlaylist = async (
-        playlistId: number,
-        video: Video
-    ) => {
-        // Placeholder for API call
-        // await fetch(`/api/playlists/${playlistId}/add-video`, { method: "POST", body: JSON.stringify({ videoId: video.id }) });
-
-        setPlaylists(
-            playlists.map((pl) =>
-                pl.id === playlistId
-                    ? { ...pl, videos: [...pl.videos, video] }
-                    : pl
-            )
-        );
-    };
 
     return (
         <div className="flex min-h-screen bg-[#282828] text-white">
@@ -334,88 +426,7 @@ const ContentManagement: React.FC = () => {
                                 />
                             </div>
 
-                            {/* Course Selection */}
-                            <div className="mb-4 ">
-                                <label className="text-sm text-gray-400 mb-2 block">
-                                    Select Course
-                                </label>
-                                <select
-                                    value={course._id || ""}
-                                    className="bg-[#2a2a2a] text-white border border-gray-50 rounded-lg p-2"
-                                    onChange={(e) => {
-                                        const selected = courses.find(
-                                            (c) => c._id === e.target.value
-                                        );
-                                        if (selected) {
-                                            setCourse({
-                                                _id: selected._id,
-                                                title: selected.title,
-                                                description:
-                                                    selected.description,
-                                                subject: selected.subject,
-                                                grade: selected.grade,
-                                                level: selected.level,
-                                                thumbnail: selected.thumbnail,
-                                                isPaid: selected.isPaid,
-                                                price: selected.price,
-                                            });
-                                        } else {
-                                            setCourse({
-                                                _id: "",
-                                                title: "",
-                                                description: "",
-                                                subject: "",
-                                                grade: "",
-                                                level: "",
-                                                thumbnail: "",
-                                                isPaid: false,
-                                                price: 0,
-                                            });
-                                        }
-                                    }}
-                                >
-                                    <option value="">
-                                        -- Choose a Course --
-                                    </option>
-                                    {courses.map((c) => (
-                                        <option key={c._id} value={c._id}>
-                                            {c.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
 
-                            {/* Free / Premium */}
-                            <div className="mb-4 flex items-center gap-3">
-                                <input
-                                    type="checkbox"
-                                    id="isPaid"
-                                    checked={course.isPaid}
-                                    disabled // disable manual toggling because it is auto-set
-                                    className="accent-blue-500"
-                                />
-                                <label
-                                    htmlFor="isPaid"
-                                    className="text-sm text-gray-400"
-                                >
-                                    Premium Course
-                                </label>
-                            </div>
-
-                            {/* Price Display */}
-                            {course.isPaid && (
-                                <div className="mb-4">
-                                    <label className="text-sm text-gray-400 mb-2 block">
-                                        Price
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={course.price}
-                                        readOnly
-                                        className="w-full bg-[#2a2a2a] border border-gray-700 rounded-lg p-2 text-white"
-                                    />
-                                </div>
-                            )}
 
                             {/* Visibility */}
                             <div className="flex items-center gap-4 mb-4">
@@ -478,7 +489,45 @@ const ContentManagement: React.FC = () => {
                                 <p>Upload your first video to get started!</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left border-collapse mb-6">
+                            <>
+                                {/* Playlist Selection Status */}
+                                <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 className="text-white font-medium">Playlist Selection Status</h3>
+                                        {selectedCourseForPlaylist && (
+                                            <span className="text-green-400 text-sm">✓ Course Selected</span>
+                                        )}
+                                    </div>
+                                    
+                                    {!selectedCourseForPlaylist ? (
+                                        <div className="text-yellow-400 text-sm">
+                                            ⚠️ <strong>No course selected.</strong> Please select a course in the Playlist section below to enable video-to-playlist adding.
+                                        </div>
+                                    ) : playlists.length === 0 ? (
+                                        <div className="text-orange-400 text-sm">
+                                            📝 <strong>Course:</strong> {courses.find(c => c._id === selectedCourseForPlaylist)?.title}<br/>
+                                            ⚠️ <strong>No playlists available.</strong> Create a playlist first to add videos.
+                                        </div>
+                                    ) : (
+                                        <div className="text-green-400 text-sm">
+                                            <div className="mb-2">
+                                                📚 <strong>Course:</strong> {courses.find(c => c._id === selectedCourseForPlaylist)?.title}
+                                            </div>
+                                            <div>
+                                                📋 <strong>Available Playlists ({playlists.length}):</strong>
+                                                <div className="mt-1 grid grid-cols-2 gap-2">
+                                                    {playlists.map((playlist, index) => (
+                                                        <div key={playlist._id} className="bg-gray-700 px-2 py-1 rounded text-xs">
+                                                            {index + 1}. {playlist.title} ({playlist.videos?.length || 0} videos)
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <table className="w-full text-left border-collapse mb-6">
                                 <thead>
                                     <tr className="border-b border-gray-600">
                                         <th className="p-2">Video</th>
@@ -510,22 +559,60 @@ const ContentManagement: React.FC = () => {
                                             <td className="p-2">
                                                 {video.likes}
                                             </td>
-                                            <td className="p-2 text-blue-400 cursor-pointer">
-                                                Add to Playlist
+                                            <td className="p-2">
+                                                {selectedCourseForPlaylist && playlists.length > 0 ? (
+                                                    <select
+                                                        onChange={(e) => {
+                                                            if (e.target.value) {
+                                                                console.log("Video object:", video);
+                                                                console.log("Video ID:", video._id);
+                                                                if (!video._id) {
+                                                                    alert("Video ID is missing!");
+                                                                    return;
+                                                                }
+                                                                handleAddVideoToPlaylist(video._id, e.target.value);
+                                                                e.target.value = ""; // Reset selection
+                                                            }
+                                                        }}
+                                                        className="text-sm px-3 py-2 bg-gray-700 text-white border border-blue-400 rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+                                                        defaultValue=""
+                                                    >
+                                                        <option value="" className="bg-gray-800">
+                                                            ➕ Add to Playlist
+                                                        </option>
+                                                        {playlists.map((playlist, index) => (
+                                                            <option key={playlist._id} value={playlist._id} className="bg-gray-800">
+                                                                📋 {playlist.title} ({playlist.videos?.length || 0} videos)
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <div className="text-center">
+                                                        <button
+                                                            className="text-gray-500 cursor-not-allowed text-xs px-2 py-1 border border-gray-500 rounded bg-gray-800"
+                                                            disabled
+                                                            title={!selectedCourseForPlaylist ? "Select a course first" : "Create playlists first"}
+                                                        >
+                                                            {!selectedCourseForPlaylist ? "Select Course" : "No Playlists"}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                            </>
                         )}
                     </div>
 
                     <div className="">
                         {/* Course Creation Section */}
                         <CreateCourse
-                            onSuccess={(course) =>
-                                console.log("Created:", course)
-                            }
+                            onSuccess={(course) => {
+                                console.log("Created:", course);
+                                fetchCourses(); // Refresh course list after creation
+                            }}
                         />
 
                         {/* Playlist Section */}
@@ -536,6 +623,26 @@ const ContentManagement: React.FC = () => {
                                 </div>
                             </CardHeader>
                             <CardContent className="flex flex-col gap-4">
+                                {/* Course Selection */}
+                                <div className="mb-4">
+                                    <label className="block text-white text-sm font-medium mb-2">
+                                        Select Course for Playlist:
+                                    </label>
+                                    <select
+                                        value={selectedCourseForPlaylist}
+                                        onChange={(e) => setSelectedCourseForPlaylist(e.target.value)}
+                                        className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+                                    >
+                                        <option value="">-- Select a Course --</option>
+                                        {courses.map((course) => (
+                                            <option key={course._id} value={course._id}>
+                                                {course.title}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Playlist Creation Form */}
                                 <div className="flex gap-2 items-center">
                                     <input
                                         type="text"
@@ -544,57 +651,137 @@ const ContentManagement: React.FC = () => {
                                         onChange={(e) =>
                                             setNewPlaylistName(e.target.value)
                                         }
-                                        className="p-2 rounded bg-gray-700 text-white w-full"
+                                        className="p-2 rounded bg-gray-700 text-white flex-1"
+                                        disabled={!selectedCourseForPlaylist}
                                     />
                                     <input
                                         type="text"
-                                        placeholder="Description"
+                                        placeholder="Description (Optional)"
                                         value={newPlaylistDesc}
                                         onChange={(e) =>
                                             setNewPlaylistDesc(e.target.value)
                                         }
-                                        className="p-2 rounded bg-gray-700 text-white w-full"
+                                        className="p-2 rounded bg-gray-700 text-white flex-1"
+                                        disabled={!selectedCourseForPlaylist}
                                     />
                                     <Button
                                         onClick={handleCreatePlaylist}
-                                        className="px-8"
+                                        className="px-6"
+                                        disabled={!selectedCourseForPlaylist || !newPlaylistName.trim()}
                                     >
-                                        <PlusCircle className="w-5 h-5" />
+                                        <PlusCircle className="w-4 h-4 mr-2" />
                                         Create
                                     </Button>
                                 </div>
 
-                                {playlists.length === 0 ? (
-                                    <div className="text-gray-400">
-                                        No playlists created yet
+                                {/* Playlist Display */}
+                                {selectedCourseForPlaylist && (
+                                    <div className="mt-4">
+                                        <h4 className="text-white font-medium mb-2">
+                                            Playlists for: {courses.find(c => c._id === selectedCourseForPlaylist)?.title}
+                                        </h4>
+                                        {playlists.length === 0 ? (
+                                            <div className="text-gray-400 text-center py-4">
+                                                No playlists created yet for this course
+                                            </div>
+                                        ) : (
+                                            <div className="grid gap-3">
+                                                {playlists.map((playlist, index) => (
+                                                    <div
+                                                        key={playlist._id || index}
+                                                        className="bg-gray-700 p-4 rounded-lg"
+                                                    >
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex-1">
+                                                                <h5 className="text-white font-semibold text-lg mb-1">
+                                                                    {playlist.title}
+                                                                </h5>
+                                                                {playlist.description && (
+                                                                    <p className="text-gray-300 text-sm mb-2">
+                                                                        {playlist.description}
+                                                                    </p>
+                                                                )}
+                                                                <div className="flex gap-4 text-xs text-gray-400">
+                                                                    <span>Videos: {playlist.videos?.length || 0}</span>
+                                                                    <span>Order: {playlist.order || index + 1}</span>
+                                                                </div>
+                                                                {/* Show video list if available */}
+                                                                {playlist.videos && playlist.videos.length > 0 && (
+                                                                    <div className="mt-2">
+                                                                        <p className="text-xs text-gray-500 mb-1">Videos in this playlist (drag to reorder):</p>
+                                                                        <div className="text-xs text-gray-400 space-y-1">
+                                                                            {playlist.videos.map((video: any, vIndex: number) => (
+                                                                                <div key={vIndex} className="flex items-center justify-between bg-gray-600 p-2 rounded">
+                                                                                    <div className="flex items-center gap-2 flex-1">
+                                                                                        <span className="text-gray-500 font-mono text-xs">
+                                                                                            {vIndex + 1}.
+                                                                                        </span>
+                                                                                        <span className="flex-1">
+                                                                                            {video.title || `Video ${vIndex + 1}`}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1">
+                                                                                        {/* Move Up Button */}
+                                                                                        <button
+                                                                                            onClick={() => handleMoveVideo(playlist._id, vIndex, 'up')}
+                                                                                            disabled={vIndex === 0}
+                                                                                            className={`p-1 rounded text-xs ${
+                                                                                                vIndex === 0 
+                                                                                                    ? 'text-gray-600 cursor-not-allowed' 
+                                                                                                    : 'text-blue-400 hover:text-blue-300 hover:bg-gray-500'
+                                                                                            }`}
+                                                                                            title="Move up"
+                                                                                        >
+                                                                                            ↑
+                                                                                        </button>
+                                                                                        {/* Move Down Button */}
+                                                                                        <button
+                                                                                            onClick={() => handleMoveVideo(playlist._id, vIndex, 'down')}
+                                                                                            disabled={vIndex === playlist.videos.length - 1}
+                                                                                            className={`p-1 rounded text-xs ${
+                                                                                                vIndex === playlist.videos.length - 1 
+                                                                                                    ? 'text-gray-600 cursor-not-allowed' 
+                                                                                                    : 'text-blue-400 hover:text-blue-300 hover:bg-gray-500'
+                                                                                            }`}
+                                                                                            title="Move down"
+                                                                                        >
+                                                                                            ↓
+                                                                                        </button>
+                                                                                        {/* Remove Button */}
+                                                                                        <button
+                                                                                            onClick={() => {
+                                                                                                if (confirm("Remove this video from playlist?")) {
+                                                                                                    // TODO: Implement remove video functionality
+                                                                                                    console.log("Remove video:", video._id);
+                                                                                                }
+                                                                                            }}
+                                                                                            className="text-red-400 hover:text-red-300 text-xs p-1 rounded hover:bg-gray-500"
+                                                                                            title="Remove from playlist"
+                                                                                        >
+                                                                                            ✕
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="text-xs"
+                                                                >
+                                                                    Edit
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                ) : (
-                                    <ul className="flex flex-col gap-2">
-                                        {playlists.map((pl) => (
-                                            <li
-                                                key={pl.id}
-                                                className="flex justify-between items-center p-3 bg-gray-800 rounded hover:bg-gray-700"
-                                            >
-                                                <div>
-                                                    <p className="font-semibold">
-                                                        {pl.name}
-                                                    </p>
-                                                    <p className="text-sm text-gray-400">
-                                                        {pl.description} |{" "}
-                                                        {pl.videos.length}{" "}
-                                                        videos
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    className="text-blue-400 flex items-center gap-1"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />{" "}
-                                                    Edit
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
                                 )}
                             </CardContent>
                         </Card>

@@ -1,11 +1,174 @@
 import express from "express";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from 'url';
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import upload from "../../middleware/fileUpload.middleware.js"
 import { authenticateToken, requireRole } from "../../middleware/auth.js";
 import Video from "../../models/video.model.js";
 import Course from "../../models/course.model.js";
 
+// ES modules equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure AWS S3 Client (v3)
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'ap-south-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
 
 const router = express.Router();
+
+
+// Public endpoint to get all courses from all creators
+router.get("/public/courses", async (req, res) => {
+  try {
+    const courses = await Course.find({})
+      .populate('creator', 'name email') // Populate creator info
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    const formattedCourses = courses.map(course => ({
+      _id: course._id,
+      title: course.title,
+      description: course.description,
+      subject: course.subject,
+      grade: course.grade,
+      level: course.level,
+      thumbnail: course.thumbnail,
+      isPaid: course.isPaid,
+      price: course.price,
+      creator: {
+        _id: course.creator._id,
+        name: course.creator.name,
+        email: course.creator.email
+      },
+      playlistCount: course.playlists?.length || 0,
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt
+    }));
+
+    res.status(200).json({
+      status: true,
+      message: "All courses retrieved successfully",
+      data: {
+        courses: formattedCourses,
+        total: formattedCourses.length
+      }
+    });
+
+  } catch (error) {
+    console.error("Get all courses error:", error);
+    res.status(500).json({
+      status: false,
+      error: error.message || "Failed to retrieve courses"
+    });
+  }
+});
+
+// Public endpoint to get course by ID with detailed information
+router.get("/public/courses/:courseId", async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const course = await Course.findById(courseId)
+      .populate('creator', 'name email profilePicture bio totalStudents totalCourses rating')
+      .populate({
+        path: 'playlists.videos',
+        select: 'title description duration thumbnail isPremium'
+      });
+
+    if (!course) {
+      return res.status(404).json({
+        status: false,
+        error: "Course not found"
+      });
+    }
+
+    // Format course data with detailed information
+    const formattedCourse = {
+      _id: course._id,
+      title: course.title,
+      description: course.description,
+      subject: course.subject,
+      grade: course.grade,
+      level: course.level,
+      thumbnail: course.thumbnail,
+      isPaid: course.isPaid,
+      price: course.price,
+      originalPrice: course.originalPrice || course.price * 1.5, // Mock original price
+      creator: {
+        _id: course.creator._id,
+        name: course.creator.name,
+        email: course.creator.email,
+        profilePicture: course.creator.profilePicture,
+        bio: course.creator.bio,
+        totalStudents: course.creator.totalStudents || 0,
+        totalCourses: course.creator.totalCourses || 1,
+        rating: course.creator.rating || 4.7
+      },
+      playlists: course.playlists?.map(playlist => ({
+        _id: playlist._id,
+        title: playlist.title,
+        description: playlist.description,
+        order: playlist.order,
+        videoCount: playlist.videos?.length || 0,
+        totalDuration: `${(playlist.videos?.length || 0) * 15} mins`, // Mock duration
+        videos: playlist.videos?.map(video => ({
+          _id: video._id,
+          title: video.title,
+          description: video.description,
+          duration: video.duration || '15 mins',
+          thumbnail: video.thumbnail,
+          isPremium: video.isPremium,
+          isLocked: course.isPaid && video.isPremium
+        }))
+      })) || [],
+      stats: {
+        totalStudents: Math.floor(Math.random() * 50000) + 10000, // Mock stats
+        totalReviews: Math.floor(Math.random() * 5000) + 1000,
+        averageRating: 4.7,
+        totalDuration: `${(course.playlists?.length || 1) * 5} hours`,
+        lastUpdated: course.updatedAt
+      },
+      features: [
+        "Comprehensive learning experience",
+        "Hands-on projects and exercises",
+        "Expert instructor guidance",
+        "Certificate of completion",
+        "Lifetime access to course materials",
+        "Mobile and desktop access"
+      ],
+      requirements: [
+        "Basic computer skills",
+        "Internet connection",
+        "Willingness to learn"
+      ],
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt
+    };
+
+    res.status(200).json({
+      status: true,
+      message: "Course details retrieved successfully",
+      data: {
+        course: formattedCourse
+      }
+    });
+
+  } catch (error) {
+    console.error("Get course by ID error:", error);
+    res.status(500).json({
+      status: false,
+      error: error.message || "Failed to retrieve course details"
+    });
+  }
+});
 
 // Utility: Convert S3 MP4 URL → proper HLS master.m3u8 URL
 function convertToHlsUrl(originalUrl) {
@@ -42,9 +205,13 @@ router.post(
     "/courses/create",
     authenticateToken,
     requireRole(["creator"]),
+    upload.fields([
+        { name: "thumbnail", maxCount: 1 },
+        { name: "previewVideo", maxCount: 1 }
+    ]),
     async (req, res) => {
         try {
-            const creatorId = req.user.id || req.user._id;
+            const creatorId = req.user._id || req.user.sub;
 
             const {
                 title,
@@ -53,30 +220,131 @@ router.post(
                 subject,
                 grade,
                 level,
-                thumbnail,
-                previewVideo,
                 isPaid,
                 price,
+                originalPrice,
                 currency,
                 maxStudents,
+                duration,
+                language,
+                difficulty,
+                category,
+                tags,
+                features,
+                requirements,
+                targetAudience,
+                learningOutcomes,
+                isPublished
             } = req.body;
 
             // Validate required fields
-            if (
-                !title ||
-                !description ||
-                !subject ||
-                !grade ||
-                !level ||
-                !thumbnail
-            ) {
+            if (!title || !description || !subject || !grade || !level) {
                 return res.status(400).json({
                     status: false,
-                    error: "Missing required fields: title, description, subject, grade, level, thumbnail",
+                    error: "Missing required fields: title, description, subject, grade, level",
                 });
             }
 
-            // Create new course
+            // Handle file uploads
+            let thumbnailUrl = null;
+            let previewVideoUrl = null;
+
+            // Process thumbnail upload
+            if (req.files && req.files.thumbnail && req.files.thumbnail[0]) {
+                const thumbnailFile = req.files.thumbnail[0];
+                
+                // Generate unique filename
+                const thumbnailExtension = path.extname(thumbnailFile.originalname);
+                const thumbnailFilename = `course-thumbnail-${Date.now()}-${Math.random().toString(36).substring(7)}${thumbnailExtension}`;
+                
+                // Check if file was uploaded to S3 via middleware
+                if (thumbnailFile.location) {
+                    // File was uploaded to S3 by middleware
+                    thumbnailUrl = thumbnailFile.location;
+                } else if (thumbnailFile.buffer) {
+                    // Upload to S3 directly or save locally
+                    if (process.env.AWS_S3_BUCKET) {
+                        // S3 Upload using AWS SDK v3
+                        const uploadParams = {
+                            Bucket: process.env.AWS_S3_BUCKET,
+                            Key: `course-thumbnails/${creatorId}/${thumbnailFilename}`,
+                            Body: thumbnailFile.buffer,
+                            ContentType: thumbnailFile.mimetype,
+                        };
+                        
+                        const s3Upload = new Upload({
+                            client: s3Client,
+                            params: uploadParams,
+                        });
+                        
+                        const s3Result = await s3Upload.done();
+                        thumbnailUrl = s3Result.Location;
+                    } else {
+                        // Local storage fallback
+                        const uploadDir = path.join(__dirname, '../../uploads/course-thumbnails');
+                        if (!fs.existsSync(uploadDir)) {
+                            fs.mkdirSync(uploadDir, { recursive: true });
+                        }
+                        
+                        const thumbnailPath = path.join(uploadDir, thumbnailFilename);
+                        fs.writeFileSync(thumbnailPath, thumbnailFile.buffer);
+                        thumbnailUrl = `/uploads/course-thumbnails/${thumbnailFilename}`;
+                    }
+                }
+            }
+
+            // Process preview video upload
+            if (req.files && req.files.previewVideo && req.files.previewVideo[0]) {
+                const videoFile = req.files.previewVideo[0];
+                
+                // Generate unique filename
+                const videoExtension = path.extname(videoFile.originalname);
+                const videoFilename = `course-preview-${Date.now()}-${Math.random().toString(36).substring(7)}${videoExtension}`;
+                
+                // Check if file was uploaded to S3 via middleware
+                if (videoFile.location) {
+                    // File was uploaded to S3 by middleware
+                    previewVideoUrl = videoFile.location;
+                } else if (videoFile.buffer) {
+                    // Upload to S3 directly or save locally
+                    if (process.env.AWS_S3_BUCKET) {
+                        // S3 Upload using AWS SDK v3
+                        const uploadParams = {
+                            Bucket: process.env.AWS_S3_BUCKET,
+                            Key: `course-previews/${creatorId}/${videoFilename}`,
+                            Body: videoFile.buffer,
+                            ContentType: videoFile.mimetype,
+                        };
+                        
+                        const s3Upload = new Upload({
+                            client: s3Client,
+                            params: uploadParams,
+                        });
+                        
+                        const s3Result = await s3Upload.done();
+                        previewVideoUrl = s3Result.Location;
+                    } else {
+                        // Local storage fallback
+                        const uploadDir = path.join(__dirname, '../../uploads/course-previews');
+                        if (!fs.existsSync(uploadDir)) {
+                            fs.mkdirSync(uploadDir, { recursive: true });
+                        }
+                        
+                        const videoPath = path.join(uploadDir, videoFilename);
+                        fs.writeFileSync(videoPath, videoFile.buffer);
+                        previewVideoUrl = `/uploads/course-previews/${videoFilename}`;
+                    }
+                }
+            }
+
+            // Parse JSON fields if they're strings
+            const parsedTags = typeof tags === 'string' ? JSON.parse(tags || '[]') : (tags || []);
+            const parsedFeatures = typeof features === 'string' ? JSON.parse(features || '[]') : (features || []);
+            const parsedRequirements = typeof requirements === 'string' ? JSON.parse(requirements || '[]') : (requirements || []);
+            const parsedTargetAudience = typeof targetAudience === 'string' ? JSON.parse(targetAudience || '[]') : (targetAudience || []);
+            const parsedLearningOutcomes = typeof learningOutcomes === 'string' ? JSON.parse(learningOutcomes || '[]') : (learningOutcomes || []);
+
+            // Create new course with enhanced fields
             const course = new Course({
                 title,
                 description,
@@ -84,15 +352,30 @@ router.post(
                 subject,
                 grade,
                 level,
-                thumbnail,
-                previewVideo,
+                thumbnail: thumbnailUrl,
+                previewVideo: previewVideoUrl,
                 creator: creatorId,
-                isPaid: isPaid || false,
-                price: isPaid ? price || 0 : 0,
+                isPaid: isPaid === 'true' || isPaid === true,
+                price: (isPaid === 'true' || isPaid === true) ? (Number(price) || 0) : 0,
+                originalPrice: Number(originalPrice) || null,
                 currency: currency || "INR",
-                maxStudents,
+                maxStudents: Number(maxStudents) || null,
+                duration: Number(duration) || 0,
+                language: language || "English",
+                difficulty: difficulty || "Beginner",
+                category: category || "General",
+                tags: parsedTags,
+                features: parsedFeatures,
+                requirements: parsedRequirements,
+                targetAudience: parsedTargetAudience,
+                learningOutcomes: parsedLearningOutcomes,
                 playlists: [], // Initialize empty playlists array
-                isPublished: false, // Default to unpublished
+                isPublished: isPublished === 'true' || isPublished === true || false,
+                enrollmentCount: 0,
+                averageRating: 0,
+                totalReviews: 0,
+                createdAt: new Date(),
+                updatedAt: new Date()
             });
 
             await course.save();
@@ -100,7 +383,11 @@ router.post(
             res.status(201).json({
                 status: true,
                 message: "Course created successfully",
-                data: course,
+                data: {
+                    course: course,
+                    thumbnailUrl: thumbnailUrl,
+                    previewVideoUrl: previewVideoUrl
+                },
             });
         } catch (error) {
             console.error("Create course error:", error);
@@ -119,7 +406,7 @@ router.get(
     requireRole(["creator"]),
     async (req, res) => {
         try {
-            const creatorId = req.user.id || req.user._id;
+            const creatorId = req.user._id || req.user.sub;
             const {
                 page = 1,
                 limit = 10,
@@ -203,7 +490,7 @@ router.get(
     async (req, res) => {
         try {
             const { id } = req.params;
-            const creatorId = req.creator.id || req.creator._id;
+            const creatorId = req.user._id || req.user.sub;
 
             const course = await Course.findOne({ _id: id, creator: creatorId })
                 .populate("creator", "firstName lastName email profilePicture")
@@ -272,10 +559,10 @@ router.post("/videos/upload", authenticateToken, requireRole(['creator']),
     } = req.body;
 
     // --- Validate required fields ---
-    if (!title || !duration || !course) {
+    if (!title || !duration) {
       return res.status(400).json({
         status: false,
-        error: "Missing required fields (title, duration, course)",
+        error: "Missing required fields (title, duration)",
       });
     }
 
@@ -294,7 +581,7 @@ router.post("/videos/upload", authenticateToken, requireRole(['creator']),
       thumbnail: thumbnailUrl,
       duration: Number(duration) || 0,
       quality: quality || "720p",
-      course,
+      course: course || null,
       creator: req.user.id || req.user._id,
       isPublic: parseBoolean(isPublic),
       isPremium: parseBoolean(isPremium),
@@ -671,6 +958,272 @@ router.post("/videos/:id/view", authenticateToken, requireRole(['creator']), asy
     res.status(500).json({
       status: false,
       error: error.message || "Failed to update view count"
+    });
+  }
+});
+
+// Create playlist in a course
+router.post("/courses/:courseId/playlists", authenticateToken, requireRole(['creator']), async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { title, description } = req.body;
+    const creatorId = req.user._id || req.user.sub;
+
+    // Validate required fields
+    if (!title) {
+      return res.status(400).json({
+        status: false,
+        error: "Playlist title is required"
+      });
+    }
+
+    // Find course and verify ownership
+    const course = await Course.findOne({ _id: courseId, creator: creatorId });
+    if (!course) {
+      return res.status(404).json({
+        status: false,
+        error: "Course not found or you don't have permission"
+      });
+    }
+
+    // Create new playlist
+    const newPlaylist = {
+      title: title.trim(),
+      description: description?.trim() || "",
+      videos: [],
+      order: course.playlists.length + 1
+    };
+
+    // Add playlist to course
+    course.playlists.push(newPlaylist);
+    await course.save();
+
+    res.status(201).json({
+      status: true,
+      message: "Playlist created successfully",
+      data: {
+        playlist: newPlaylist,
+        course: course
+      }
+    });
+
+  } catch (error) {
+    console.error("Create playlist error:", error);
+    res.status(500).json({
+      status: false,
+      error: error.message || "Failed to create playlist"
+    });
+  }
+});
+
+// Get all playlists for a course
+router.get("/courses/:courseId/playlists", authenticateToken, requireRole(['creator']), async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const creatorId = req.user._id || req.user.sub;
+
+    // Find course and verify ownership
+    const course = await Course.findOne({ _id: courseId, creator: creatorId })
+      .populate("playlists.videos", "title duration thumbnail videoUrl");
+    
+    if (!course) {
+      return res.status(404).json({
+        status: false,
+        error: "Course not found or you don't have permission"
+      });
+    }
+
+    res.status(200).json({
+      status: true,
+      message: "Playlists retrieved successfully",
+      data: {
+        playlists: course.playlists,
+        courseTitle: course.title
+      }
+    });
+
+  } catch (error) {
+    console.error("Get playlists error:", error);
+    res.status(500).json({
+      status: false,
+      error: error.message || "Failed to retrieve playlists"
+    });
+  }
+});
+
+// Add video to playlist
+router.post("/courses/:courseId/playlists/:playlistId/videos", authenticateToken, requireRole(['creator']), async (req, res) => {
+  try {
+    const { courseId, playlistId } = req.params;
+    const { videoId } = req.body;
+    const creatorId = req.user._id || req.user.sub;
+
+    // Validate required fields
+    if (!videoId) {
+      return res.status(400).json({
+        status: false,
+        error: "Video ID is required"
+      });
+    }
+
+    // Find course and verify ownership
+    const course = await Course.findOne({ _id: courseId, creator: creatorId });
+    if (!course) {
+      return res.status(404).json({
+        status: false,
+        error: "Course not found or you don't have permission"
+      });
+    }
+
+    // Find the specific playlist
+    const playlist = course.playlists.id(playlistId);
+    if (!playlist) {
+      return res.status(404).json({
+        status: false,
+        error: "Playlist not found"
+      });
+    }
+
+    // Check if video exists and belongs to creator
+    const video = await Video.findOne({ _id: videoId, creator: creatorId });
+    if (!video) {
+      return res.status(404).json({
+        status: false,
+        error: "Video not found or you don't have permission"
+      });
+    }
+
+    // Check if video is already in playlist
+    if (playlist.videos.includes(videoId)) {
+      return res.status(400).json({
+        status: false,
+        error: "Video is already in this playlist"
+      });
+    }
+
+    // Add video to playlist
+    playlist.videos.push(videoId);
+    await course.save();
+
+    // Update video's course reference if not set
+    if (!video.course) {
+      video.course = courseId;
+      await video.save();
+    }
+
+    res.status(200).json({
+      status: true,
+      message: "Video added to playlist successfully",
+      data: {
+        playlist: playlist,
+        video: video
+      }
+    });
+
+  } catch (error) {
+    console.error("Add video to playlist error:", error);
+    res.status(500).json({
+      status: false,
+      error: error.message || "Failed to add video to playlist"
+    });
+  }
+});
+
+// Remove video from playlist
+router.delete("/courses/:courseId/playlists/:playlistId/videos/:videoId", authenticateToken, requireRole(['creator']), async (req, res) => {
+  try {
+    const { courseId, playlistId, videoId } = req.params;
+    const creatorId = req.user._id || req.user.sub;
+
+    // Find course and verify ownership
+    const course = await Course.findOne({ _id: courseId, creator: creatorId });
+    if (!course) {
+      return res.status(404).json({
+        status: false,
+        error: "Course not found or you don't have permission"
+      });
+    }
+
+    // Find the specific playlist
+    const playlist = course.playlists.id(playlistId);
+    if (!playlist) {
+      return res.status(404).json({
+        status: false,
+        error: "Playlist not found"
+      });
+    }
+
+    // Remove video from playlist
+    playlist.videos.pull(videoId);
+    await course.save();
+
+    res.status(200).json({
+      status: true,
+      message: "Video removed from playlist successfully",
+      data: {
+        playlist: playlist
+      }
+    });
+
+  } catch (error) {
+    console.error("Remove video from playlist error:", error);
+    res.status(500).json({
+      status: false,
+      error: error.message || "Failed to remove video from playlist"
+    });
+  }
+});
+
+// Update video order in playlist
+router.put("/courses/:courseId/playlists/:playlistId/videos/reorder", authenticateToken, requireRole(['creator']), async (req, res) => {
+  try {
+    const { courseId, playlistId } = req.params;
+    const { videoOrder } = req.body; // Array of video IDs in new order
+    const creatorId = req.user._id || req.user.sub;
+
+    // Validate required fields
+    if (!videoOrder || !Array.isArray(videoOrder)) {
+      return res.status(400).json({
+        status: false,
+        error: "Video order array is required"
+      });
+    }
+
+    // Find course and verify ownership
+    const course = await Course.findOne({ _id: courseId, creator: creatorId });
+    if (!course) {
+      return res.status(404).json({
+        status: false,
+        error: "Course not found or you don't have permission"
+      });
+    }
+
+    // Find the specific playlist
+    const playlist = course.playlists.id(playlistId);
+    if (!playlist) {
+      return res.status(404).json({
+        status: false,
+        error: "Playlist not found"
+      });
+    }
+
+    // Update video order
+    playlist.videos = videoOrder;
+    await course.save();
+
+    res.status(200).json({
+      status: true,
+      message: "Video order updated successfully",
+      data: {
+        playlist: playlist
+      }
+    });
+
+  } catch (error) {
+    console.error("Update video order error:", error);
+    res.status(500).json({
+      status: false,
+      error: error.message || "Failed to update video order"
     });
   }
 });

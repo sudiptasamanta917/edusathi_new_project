@@ -32,8 +32,9 @@ router.post('/register', async (req, res) => {
             isActive
         } = req.body;
 
-        // Validate phone
-        if (phoneNumber.length !== 10) {
+        // Validate phone if provided (coerce to string). If your app requires phone number,
+        // change this to a required validation.
+        if (phoneNumber && String(phoneNumber).length !== 10) {
             return res.status(400).json({ message: 'Phone number must be 10 digits' });
         }
 
@@ -70,7 +71,7 @@ router.post('/register', async (req, res) => {
             isActive
         });
 
-        await newCreator.save();
+    await newCreator.save();
 
         // Send OTP via email
         await sendOTP(
@@ -85,6 +86,8 @@ router.post('/register', async (req, res) => {
         });
     } catch (error) {
         console.error("Register error:", error);
+        // Temporary: send error details for debugging. Remove or sanitize in production.
+        console.error(error);
         res.status(500).json({ message: "Internal server error" });
     }
 });
@@ -124,6 +127,10 @@ router.post('/login', async (req, res) => {
     res.status(200).json({
         success: true,
         message: 'Login successful',
+        access_token: accessToken, // Frontend expects access_token
+        refresh_token: refreshToken, // Frontend expects refresh_token
+        accessToken: accessToken, // Keep both for compatibility
+        refreshToken: refreshToken,
         creator: {
             _id: creator._id,
             firstName: creator.firstName,
@@ -144,6 +151,11 @@ router.get('/logout', async (req, res) => {
 
     // Clear token from cookie if available
     res.clearCookie("token", cookieOptions)
+    // Also clear refresh token cookie if present
+    res.clearCookie("refreshToken", {
+        ...cookieOptions,
+        maxAge: 0
+    })
 
     res.status(200).json({
         message: 'Logout successful'

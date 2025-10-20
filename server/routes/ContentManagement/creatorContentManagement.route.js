@@ -112,6 +112,131 @@ router.post(
     }
 );
 
+// Get all courses for a creator (with pagination and filters)
+router.get(
+    "/courses",
+    authenticateToken,
+    requireRole(["creator"]),
+    async (req, res) => {
+        try {
+            const creatorId = req.user.id || req.user._id;
+            const {
+                page = 1,
+                limit = 10,
+                subject,
+                grade,
+                level,
+                isPaid,
+                isPublished,
+                sortBy = "createdAt",
+                sortOrder = "desc",
+                search,
+            } = req.query;
+
+            // Build filter object
+            const filter = {
+                creator: creatorId,
+                isActive: { $ne: false }, // Only active courses
+            };
+
+            if (subject) filter.subject = subject;
+            if (grade) filter.grade = grade;
+            if (level) filter.level = level;
+            if (isPaid !== undefined) filter.isPaid = parseBoolean(isPaid);
+            if (isPublished !== undefined)
+                filter.isPublished = parseBoolean(isPublished);
+
+            if (search) {
+                filter.$or = [
+                    { title: { $regex: search, $options: "i" } },
+                    { description: { $regex: search, $options: "i" } },
+                    { shortDescription: { $regex: search, $options: "i" } },
+                ];
+            }
+
+            // Calculate pagination
+            const skip = (parseInt(page) - 1) * parseInt(limit);
+            const sortOptions = {};
+            sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+            // Get courses with pagination
+            const courses = await Course.find(filter)
+                .populate("creator", "firstName lastName email")
+                .sort(sortOptions)
+                .skip(skip)
+                .limit(parseInt(limit))
+                .select("-__v");
+
+            // Get total count for pagination
+            const totalCourses = await Course.countDocuments(filter);
+            const totalPages = Math.ceil(totalCourses / parseInt(limit));
+
+            res.status(200).json({
+                status: true,
+                message: "Courses retrieved successfully",
+                data: {
+                    courses,
+                    pagination: {
+                        currentPage: parseInt(page),
+                        totalPages,
+                        totalCourses,
+                        hasNextPage: parseInt(page) < totalPages,
+                        hasPrevPage: parseInt(page) > 1,
+                    },
+                },
+            });
+        } catch (error) {
+            console.error("Get courses error:", error);
+            res.status(500).json({
+                status: false,
+                error: error.message || "Failed to retrieve courses",
+            });
+        }
+    }
+);
+
+// Get particular course by ID.............
+router.get(
+    "/courses/:id",
+    authenticateToken,
+    requireRole(["creator"]),
+    async (req, res) => {
+        try {
+            const { id } = req.params;
+            const creatorId = req.creator.id || req.creator._id;
+
+            const course = await Course.findOne({ _id: id, creator: creatorId })
+                .populate("creator", "firstName lastName email profilePicture")
+                .populate(
+                    "playlists.videos",
+                    "title duration thumbnail videoUrl"
+                )
+                .populate("notes", "title fileType createdAt")
+                .populate("tests", "title totalQuestions totalMarks createdAt")
+                .select("-__v");
+
+            if (!course) {
+                return res.status(404).json({
+                    status: false,
+                    error: "Course not found or you don't have permission to access it",
+                });
+            }
+
+            res.status(200).json({
+                status: true,
+                message: "Course retrieved successfully",
+                data: course,
+            });
+        } catch (error) {
+            console.error("Get course error:", error);
+            res.status(500).json({
+                status: false,
+                error: error.message || "Failed to retrieve course",
+            });
+        }
+    }
+);
+
 // Upload a new video (for verified creators)
 router.post("/videos/upload", authenticateToken, requireRole(['creator']),
   upload.fields([
@@ -477,7 +602,7 @@ router.get("/all-videos", async (req, res) => {
         sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
 
         const videos = await Video.find(filter)
-            .populate("course", "title subject grade level")
+            .populate("course")
             .populate("creator", "firstName lastName email profilePicture")
             .sort(sortOptions)
             .skip(skip)

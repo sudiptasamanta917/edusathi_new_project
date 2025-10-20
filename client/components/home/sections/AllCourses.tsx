@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, User, BookOpen, Clock, Star } from "lucide-react";
+import { Search, Filter, User, BookOpen, Clock } from "lucide-react";
 import { PublicAPI } from "@/Api/api";
 
 type Course = {
@@ -39,10 +39,12 @@ export default function AllCourses() {
 
     // Filter courses based on search and filter criteria
     const filteredCourses = courses.filter(course => {
-        const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            course.creator.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            course.subject.toLowerCase().includes(searchTerm.toLowerCase());
+    const lower = searchTerm.toLowerCase();
+    const creatorName = course.creator?.name || "";
+    const matchesSearch = (course.title || "").toLowerCase().includes(lower) ||
+                (course.description || "").toLowerCase().includes(lower) ||
+                creatorName.toLowerCase().includes(lower) ||
+                (course.subject || "").toLowerCase().includes(lower);
 
         const matchesFilter = selectedFilter === "all" ||
                             (selectedFilter === "free" && !course.isPaid) ||

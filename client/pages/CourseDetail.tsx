@@ -66,8 +66,16 @@ export default function CourseDetail() {
 
   useEffect(() => {
     // If course data is not available from navigation state, fetch it from API
-    if (!course && id) {
-      fetchCourseDetails();
+    if (id) {
+      // If we have a course from navigation but it lacks playlists, fetch full details
+      if (course && (!course.playlists || course.playlists.length === 0)) {
+        fetchCourseDetails();
+        return;
+      }
+
+      if (!course) {
+        fetchCourseDetails();
+      }
     }
   }, [id, course]);
 
@@ -170,10 +178,23 @@ export default function CourseDetail() {
     }
   };
 
+  // Format seconds into human readable string (e.g., 3660 -> "1 hr 1 min")
+  function formatSeconds(secondsInput: any) {
+    const secs = Number(secondsInput);
+    if (!secs || isNaN(secs) || secs <= 0) return 'N/A';
+    const hours = Math.floor(secs / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    if (hours > 0) {
+      return `${hours} hr${hours > 1 ? 's' : ''}${minutes > 0 ? ` ${minutes} min${minutes > 1 ? 's' : ''}` : ''}`;
+    }
+    return `${minutes} min${minutes > 1 ? 's' : ''}`;
+  }
+
   // Fallback data for missing course properties
   const safeTitle = course?.title || 'Course Title';
   const safeDescription = course?.description || 'Course description not available.';
-  const safeCreatorName = course?.creator?.name || 'Unknown Creator';
+  const safeCreator = course?.creator || null;
+  const safeCreatorName = safeCreator?.name || 'Unknown Creator';
   const safeSubject = course?.subject || 'General';
   const safeGrade = course?.grade || 'N/A';
   const safeLevel = course?.level || 'Beginner';
@@ -186,6 +207,41 @@ export default function CourseDetail() {
     totalDuration: 'N/A',
     lastUpdated: new Date().toISOString()
   };
+
+  // Compute total duration for a playlist (based on videos' durations, preferring numeric seconds)
+  function computePlaylistDuration(playlist: any) {
+    if (!playlist) return 'N/A';
+    const videos = playlist.videos || [];
+    const totalSeconds = videos.reduce((acc: number, v: any) => {
+      if (!v) return acc;
+      if (typeof v.duration === 'number') return acc + (v.duration || 0);
+      // try to extract number from string
+      const parsed = parseInt(String(v.duration || '').replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(parsed) && parsed > 0) return acc + parsed;
+      return acc;
+    }, 0);
+    return totalSeconds > 0 ? formatSeconds(totalSeconds) : 'N/A';
+  }
+
+  // Compute course total duration from playlists/videos
+  function computeCourseTotalDuration(playlists: any[]) {
+    const totalSeconds = (playlists || []).reduce((pAcc: number, pl: any) => {
+      const videos = pl.videos || [];
+      return pAcc + videos.reduce((vAcc: number, v: any) => {
+        if (!v) return vAcc;
+        if (typeof v.duration === 'number') return vAcc + (v.duration || 0);
+        const parsed = parseInt(String(v.duration || '').replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(parsed) && parsed > 0) return vAcc + parsed;
+        return vAcc;
+      }, 0);
+    }, 0);
+    return totalSeconds > 0 ? formatSeconds(totalSeconds) : (safeStats.totalDuration || 'N/A');
+  }
+  // Safe course-level fallbacks
+  const safeIsPaid = !!course?.isPaid;
+  const safePrice = typeof course?.price === 'number' ? course.price : Number(course?.price) || 0;
+  const safeOriginalPrice = (typeof course?.originalPrice === 'number' ? course.originalPrice : (course?.originalPrice ? Number(course.originalPrice) : null));
+  const safeThumbnail = course?.thumbnail || '/placeholder.jpg';
 
   // Handle enrollment actions
   const handleEnrollment = (action: 'cart' | 'buy') => {
@@ -361,7 +417,7 @@ export default function CourseDetail() {
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                <span>{safeStats.totalDuration}</span>
+                <span>{computeCourseTotalDuration(safePlaylists)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-yellow-500" />
@@ -433,13 +489,13 @@ export default function CourseDetail() {
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {playlist.totalDuration || 'N/A'}
+                              {computePlaylistDuration(playlist)}
                             </span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {course.isPaid && (
+                        {safeIsPaid && (
                           <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded">
                             <Lock className="w-3 h-3" />
                             Premium
@@ -538,18 +594,18 @@ export default function CourseDetail() {
           {/* Pricing Box */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             <img
-              src={course.thumbnail || "/placeholder.jpg"}
-              alt={course.title}
+              src={safeThumbnail}
+              alt={safeTitle}
               className="w-full h-48 object-cover"
             />
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {course.isPaid ? `₹${course.price}` : 'Free'}
+                  {safeIsPaid ? `₹${safePrice}` : 'Free'}
                 </p>
-                {course.isPaid && course.originalPrice && (
+                {safeIsPaid && safeOriginalPrice && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 line-through">
-                    ₹{course.originalPrice}
+                    ₹{safeOriginalPrice}
                   </p>
                 )}
               </div>
@@ -558,13 +614,13 @@ export default function CourseDetail() {
                 onClick={() => handleEnrollment('cart')}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition mb-3"
               >
-                {course?.isPaid ? 'Add to cart' : 'Enroll for Free'}
+                {safeIsPaid ? 'Add to cart' : 'Enroll for Free'}
               </button>
               <button 
                 onClick={() => handleEnrollment('buy')}
                 className="w-full border border-purple-600 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 py-3 rounded-lg font-semibold transition"
               >
-                {course?.isPaid ? 'Buy now' : 'Start Learning'}
+                {safeIsPaid ? 'Buy now' : 'Start Learning'}
               </button>
 
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center">
@@ -608,10 +664,10 @@ export default function CourseDetail() {
             </h3>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center overflow-hidden">
-                {course.creator.profilePicture ? (
+                {safeCreator && safeCreator.profilePicture ? (
                   <img 
-                    src={course.creator.profilePicture} 
-                    alt={course.creator.name}
+                    src={safeCreator.profilePicture} 
+                    alt={safeCreator.name || safeCreatorName}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -620,7 +676,7 @@ export default function CourseDetail() {
               </div>
               <div>
                 <h4 className="font-semibold text-gray-900 dark:text-white">
-                  {course.creator.name}
+                  {safeCreator?.name || safeCreatorName}
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Course Creator
@@ -632,26 +688,26 @@ export default function CourseDetail() {
             <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
               <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
                 <div className="font-semibold text-gray-900 dark:text-white">
-                  {course.creator.totalStudents?.toLocaleString() || '0'}
-                </div>
+                    {(safeCreator && safeCreator.totalStudents && typeof safeCreator.totalStudents === 'number') ? safeCreator.totalStudents.toLocaleString() : '0'}
+                  </div>
                 <div className="text-gray-600 dark:text-gray-400">Students</div>
               </div>
               <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
                 <div className="font-semibold text-gray-900 dark:text-white">
-                  {course.creator.totalCourses || '0'}
+                  {safeCreator?.totalCourses || '0'}
                 </div>
                 <div className="text-gray-600 dark:text-gray-400">Courses</div>
               </div>
             </div>
             
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              {course.creator.bio || "Passionate educator dedicated to helping students achieve their learning goals."}
+              {safeCreator?.bio || "Passionate educator dedicated to helping students achieve their learning goals."}
             </p>
             
             <div className="flex items-center gap-2 text-sm">
               <Star className="w-4 h-4 text-yellow-500" />
               <span className="text-gray-900 dark:text-white font-semibold">
-                {course.creator.rating || '4.7'} Instructor Rating
+                {safeCreator?.rating || '4.7'} Instructor Rating
               </span>
             </div>
           </div>

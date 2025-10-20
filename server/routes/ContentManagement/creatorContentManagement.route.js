@@ -29,9 +29,38 @@ const router = express.Router();
 // Public endpoint to get all courses from all creators
 router.get("/public/courses", async (req, res) => {
   try {
-    const courses = await Course.find({})
-      .populate('creator', 'name email') // Populate creator info
-      .sort({ createdAt: -1 }); // Sort by newest first
+    // Support pagination, filtering and sorting via query params
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 12));
+    const skip = (page - 1) * limit;
+
+    const { subject, grade, level, isPaid, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+
+    const filter = { isActive: { $ne: false } };
+    if (subject) filter.subject = String(subject);
+    if (grade) filter.grade = String(grade);
+    if (level) filter.level = String(level);
+    if (isPaid !== undefined) filter.isPaid = parseBoolean(isPaid);
+    if (search) {
+      filter.$or = [
+        { title: { $regex: String(search), $options: 'i' } },
+        { description: { $regex: String(search), $options: 'i' } },
+        { shortDescription: { $regex: String(search), $options: 'i' } }
+      ];
+    }
+
+    const sortOptions = {};
+    sortOptions[String(sortBy)] = String(sortOrder).toLowerCase() === 'desc' ? -1 : 1;
+
+    const [courses, total] = await Promise.all([
+      Course.find(filter)
+        .populate('creator', 'name email')
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Course.countDocuments(filter),
+    ]);
 
     const formattedCourses = courses.map(course => ({
       _id: course._id,
@@ -43,11 +72,11 @@ router.get("/public/courses", async (req, res) => {
       thumbnail: course.thumbnail,
       isPaid: course.isPaid,
       price: course.price,
-      creator: {
+      creator: course.creator ? {
         _id: course.creator._id,
         name: course.creator.name,
         email: course.creator.email
-      },
+      } : null,
       playlistCount: course.playlists?.length || 0,
       createdAt: course.createdAt,
       updatedAt: course.updatedAt
@@ -55,10 +84,15 @@ router.get("/public/courses", async (req, res) => {
 
     res.status(200).json({
       status: true,
-      message: "All courses retrieved successfully",
+      message: "Courses retrieved successfully",
       data: {
         courses: formattedCourses,
-        total: formattedCourses.length
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
       }
     });
 
@@ -90,62 +124,88 @@ router.get("/public/courses/:courseId", async (req, res) => {
       });
     }
 
-    // Format course data with detailed information
+    // Format course data with detailed information (defensive)
+    const safeCreator = course.creator || null;
+
     const formattedCourse = {
       _id: course._id,
-      title: course.title,
-      description: course.description,
-      subject: course.subject,
-      grade: course.grade,
-      level: course.level,
-      thumbnail: course.thumbnail,
-      isPaid: course.isPaid,
-      price: course.price,
-      originalPrice: course.originalPrice || course.price * 1.5, // Mock original price
-      creator: {
-        _id: course.creator._id,
-        name: course.creator.name,
-        email: course.creator.email,
-        profilePicture: course.creator.profilePicture,
-        bio: course.creator.bio,
-        totalStudents: course.creator.totalStudents || 0,
-        totalCourses: course.creator.totalCourses || 1,
-        rating: course.creator.rating || 4.7
-      },
-      playlists: course.playlists?.map(playlist => ({
-        _id: playlist._id,
-        title: playlist.title,
-        description: playlist.description,
-        order: playlist.order,
-        videoCount: playlist.videos?.length || 0,
-        totalDuration: `${(playlist.videos?.length || 0) * 15} mins`, // Mock duration
-        videos: playlist.videos?.map(video => ({
-          _id: video._id,
-          title: video.title,
-          description: video.description,
-          duration: video.duration || '15 mins',
-          thumbnail: video.thumbnail,
-          isPremium: video.isPremium,
-          isLocked: course.isPaid && video.isPremium
-        }))
-      })) || [],
+      title: course.title || "",
+      description: course.description || "",
+      subject: course.subject || "",
+      grade: course.grade || "",
+      level: course.level || "",
+      thumbnail: course.thumbnail || null,
+      isPaid: !!course.isPaid,
+      price: typeof course.price === 'number' ? course.price : Number(course.price) || 0,
+      originalPrice: typeof course.originalPrice === 'number' ? course.originalPrice : (course.originalPrice ? Number(course.originalPrice) : (Number(course.price) ? Number(course.price) * 1.5 : null)),
+      creator: safeCreator ? {
+        _id: safeCreator._id,
+        name: safeCreator.name || (safeCreator.firstName && safeCreator.lastName ? `${safeCreator.firstName} ${safeCreator.lastName}` : "Unknown Creator"),
+        email: safeCreator.email || null,
+        profilePicture: safeCreator.profilePicture || null,
+        bio: safeCreator.bio || "",
+        totalStudents: safeCreator.totalStudents || 0,
+        totalCourses: safeCreator.totalCourses || 0,
+        rating: safeCreator.rating || 0
+      } : null,
+      playlists: (course.playlists || []).map(playlist => {
+        const videos = (playlist.videos || []).map(video => {
+          // Convert mp4 URL to HLS only if it's a string and matches pattern
+          const videoUrl = typeof video.videoUrl === 'string' ? convertToHlsUrl(video.videoUrl) : video.videoUrl;
+          const duration = video.duration || '15 mins';
+          return {
+            _id: video._id,
+            title: video.title || "",
+            description: video.description || "",
+            duration,
+            thumbnail: video.thumbnail || null,
+            isPremium: !!video.isPremium,
+            isLocked: !!course.isPaid && !!video.isPremium,
+            videoUrl
+          };
+        });
+
+        // Attempt to compute total duration in minutes if numeric durations exist
+        let totalDurationText = "";
+        try {
+          const numericDurations = (playlist.videos || []).map(v => {
+            if (!v) return 0;
+            // If duration is a number (minutes), use it. If string like '15 mins', parseInt.
+            if (typeof v.duration === 'number') return v.duration;
+            const parsed = parseInt(String(v.duration || '').replace(/[^0-9]/g, ''), 10);
+            return isNaN(parsed) ? 0 : parsed;
+          });
+          const sumMinutes = numericDurations.reduce((s, n) => s + n, 0);
+          totalDurationText = sumMinutes > 0 ? `${sumMinutes} mins` : `${numericDurations.length * 15} mins`;
+        } catch (e) {
+          totalDurationText = `${(playlist.videos || []).length * 15} mins`;
+        }
+
+        return {
+          _id: playlist._id,
+          title: playlist.title || "",
+          description: playlist.description || "",
+          order: playlist.order || 0,
+          videoCount: (playlist.videos || []).length,
+          totalDuration: totalDurationText,
+          videos
+        };
+      }),
       stats: {
         totalStudents: Math.floor(Math.random() * 50000) + 10000, // Mock stats
         totalReviews: Math.floor(Math.random() * 5000) + 1000,
-        averageRating: 4.7,
-        totalDuration: `${(course.playlists?.length || 1) * 5} hours`,
+        averageRating: course.averageRating || 4.7,
+        totalDuration: `${((course.playlists || []).reduce((acc, p) => acc + ((p.videos || []).length), 0) || 1) * 5} hours`,
         lastUpdated: course.updatedAt
       },
-      features: [
+      features: Array.isArray(course.features) && course.features.length ? course.features : [
         "Comprehensive learning experience",
-        "Hands-on projects and exercises",
         "Expert instructor guidance",
         "Certificate of completion",
         "Lifetime access to course materials",
         "Mobile and desktop access"
       ],
-      requirements: [
-        "Basic computer skills",
+      requirements: Array.isArray(course.requirements) && course.requirements.length ? course.requirements : [
         "Internet connection",
         "Willingness to learn"
       ],

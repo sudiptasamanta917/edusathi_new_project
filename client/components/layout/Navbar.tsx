@@ -128,10 +128,21 @@
 
 
 import { useState, useEffect, Fragment } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Menu, X, ChevronDown } from "lucide-react";
+import { FaUser } from "react-icons/fa6";
+import { FaShoppingCart } from "react-icons/fa";
+
+type CartItem = {
+    courseId: string;
+    title: string;
+    price: number;
+    thumbnail: string;
+    creator: string;
+    addedAt: string;
+};
 
 const navLinks = [
     {
@@ -323,6 +334,45 @@ const navLinks = [
 export default function Navbar() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const [profile, setProfile] = useState<{
+        name?: string;
+        email?: string;
+        role?: string;
+    } | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+    const [cartItems, setCartItems] = useState<CartItem[]>([]);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        // get profile data
+        const p =
+            sessionStorage.getItem("userProfile") ||
+            localStorage.getItem("userProfile") ||
+            sessionStorage.getItem("user") ||
+            localStorage.getItem("user");
+        setProfile(p ? JSON.parse(p) : null);
+
+        // get avatar
+        const u = localStorage.getItem("studentAvatarUrl") || undefined;
+        setAvatarUrl(u);
+    }, []);
+
+    // Load cart on mount
+    useEffect(() => {
+        const savedCart = localStorage.getItem("studentCart");
+        if (savedCart) setCartItems(JSON.parse(savedCart));
+    }, []);
+
+    // Listen for localStorage changes to update cart
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const savedCart = localStorage.getItem("studentCart");
+            if (savedCart) setCartItems(JSON.parse(savedCart));
+            else setCartItems([]);
+        };
+        window.addEventListener("storage", handleStorageChange);
+        return () => window.removeEventListener("storage", handleStorageChange);
+    }, []);
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -450,6 +500,7 @@ export default function Navbar() {
                                                                     section.section
                                                                 }
                                                             </div>
+                                                            /
                                                             {section.items.map(
                                                                 (item) => (
                                                                     <Link
@@ -492,19 +543,62 @@ export default function Navbar() {
                 {/* Right Side Actions */}
                 <div className="flex items-center gap-1 sm:gap-3">
                     <ThemeToggle />
-                    <Link to="/student" className="hidden md:block">
-                        <Button
-                            variant="outline"
-                            className="text-sm 2xl:text-lg text-slate-800 dark:text-slate-900 2xl:px-5 px-4 rounded-sm"
-                        >
-                            Student login
-                        </Button>
-                    </Link>
-                    <Link to="/invest" className="hidden md:block">
-                        <Button className="bg-green-600 hover:bg-green-700 text-sm 2xl:text-lg text-white font-semibold 2xl:px-5 px-4 rounded-sm transition-all">
-                            Invest Now
-                        </Button>
-                    </Link>
+                    {profile ? (
+                        <div className="flex items-center gap-4">
+                            <Link
+                                to="/student/cart"
+                                className="hidden md:block"
+                            >
+                                <button className="text-sm 2xl:text-lg dark:text-white text-slate-700 p-2 focus:outline-none relative">
+                                    <FaShoppingCart className="text-xl" />
+                                    {cartItems.length > 0 && (
+                                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                                            {cartItems.length}
+                                        </span>
+                                    )}
+                                </button>
+                            </Link>
+
+                            <Link
+                                to="/student"
+                                className="hidden md:block group relative"
+                            >
+                                <button className="">
+                                    {avatarUrl ? (
+                                        <img
+                                            src={avatarUrl}
+                                            alt="avatar"
+                                            className="w-10 h-10 2xl:w-11 2xl:h-11 rounded-full border object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 2xl:w-11 2xl:h-11 rounded-full border flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                                            <FaUser className="text-slate-700 dark:text-white text-lg" />
+                                        </div>
+                                    )}
+                                </button>
+                                {/* Tooltip */}
+                                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                    {profile?.name || "Student Dashboard"}
+                                </span>
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-4">
+                            <Link to="/student" className="hidden md:block">
+                                <Button
+                                    variant="outline"
+                                    className="text-sm 2xl:text-lg text-slate-800 dark:text-slate-900 2xl:px-5 px-4 rounded-sm"
+                                >
+                                    Student login
+                                </Button>
+                            </Link>
+                            <Link to="/invest" className="hidden md:block">
+                                <Button className="bg-green-600 hover:bg-green-700 text-sm 2xl:text-lg text-white font-semibold 2xl:px-5 px-4 rounded-sm transition-all">
+                                    Invest Now
+                                </Button>
+                            </Link>
+                        </div>
+                    )}
                     {/* Mobile Menu button */}
                     <Button
                         variant="ghost"

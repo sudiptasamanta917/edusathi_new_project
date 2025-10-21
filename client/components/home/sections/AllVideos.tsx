@@ -187,10 +187,10 @@ export default function AllVideos() {
                             >
                                 <div className="bg-white dark:bg-transparent transition">
                                     <img
-                                        src={
-                                            video.thumbnail ||
-                                            "/placeholder.jpg"
-                                        }
+                                        // src={
+                                        //     video.thumbnail 
+                                        // }
+                                        src="./class5.avif"
                                         alt={video.title}
                                         className="w-full h-40 object-cover border border-gray-300 dark:border-gray-50"
                                     />

@@ -385,18 +385,9 @@ export default function CourseDetail() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-8 grid lg:grid-cols-3 gap-8">
+      <div className="container mx-auto px-4 py-8 grid lg:grid-cols-3 gap-8 mt-20">
         {/* ---------- LEFT CONTENT ---------- */}
         <div className="lg:col-span-2">
-          {/* Back Button */}
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Courses
-          </button>
-
           {/* Course Header */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
@@ -525,7 +516,8 @@ export default function CourseDetail() {
                               {video.thumbnail && (
                                 <div className="w-16 h-12 bg-gray-200 dark:bg-gray-600 rounded overflow-hidden flex-shrink-0">
                                   <img 
-                                    src={video.thumbnail} 
+                                    // src={video.thumbnail} 
+                                    src="/class5.avif"
                                     alt={video.title}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
@@ -594,7 +586,8 @@ export default function CourseDetail() {
           {/* Pricing Box */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             <img
-              src={safeThumbnail}
+              // src={safeThumbnail}
+              src="/class5.avif"
               alt={safeTitle}
               className="w-full h-48 object-cover"
             />
@@ -639,7 +632,8 @@ export default function CourseDetail() {
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex gap-3">
                   <img
-                    src={`/placeholder-${i}.jpg`}
+                    // src={`/placeholder-${i}.jpg`}
+                    src="/class5.avif"
                     alt={`Course ${i}`}
                     className="w-16 h-16 rounded object-cover"
                   />

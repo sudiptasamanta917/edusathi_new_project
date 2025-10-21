@@ -1,10 +1,11 @@
 import bcrypt from 'bcryptjs';
 import Business from '../models/Business.js';
 import Student from '../models/Student.js';
-import Creator from '../models/Creator.js';
+import Creator from '../models/creator.model.js';
 import Admin from '../models/Admin.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { getFileUrl } from '../middleware/upload.js';
+import { cookieOptions } from '../utils/cookieOptions.js';
 
 export const register = async (req, res) => {
   try {
@@ -34,6 +35,10 @@ export const register = async (req, res) => {
     const access_token = signAccessToken({ sub: created._id.toString(), role: newRole });
     const refresh_token = signRefreshToken({ sub: created._id.toString(), role: newRole });
 
+    // Set cookies for browser-based flows (HttpOnly). Access token short-lived.
+    res.cookie('token', access_token, cookieOptions);
+    res.cookie('refreshToken', refresh_token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
     res.status(201).json({
       user: sanitizeRoleUser(created, newRole),
       access_token,
@@ -60,7 +65,8 @@ export const login = async (req, res) => {
   try {
     const { email, password, role } = req.body || {};
     if (!email || !password) return res.status(400).json({ message: 'Missing credentials' });
-    const selectedRole = (role || '').toLowerCase();
+    // Default to 'student' role when role is not provided by client
+    const selectedRole = (role || 'student').toLowerCase();
     const Model = getRoleModel(selectedRole);
     if (!Model) return res.status(400).json({ message: 'role is required' });
 
@@ -72,6 +78,10 @@ export const login = async (req, res) => {
 
     const access_token = signAccessToken({ sub: account._id.toString(), role: selectedRole });
     const refresh_token = signRefreshToken({ sub: account._id.toString(), role: selectedRole });
+
+    // Set cookies for browser-based flows
+    res.cookie('token', access_token, cookieOptions);
+    res.cookie('refreshToken', refresh_token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
     res.json({
       user: sanitizeRoleUser(account, selectedRole),
@@ -86,12 +96,18 @@ export const login = async (req, res) => {
 
 export const refresh = async (req, res) => {
   try {
-    const { refresh_token } = req.body || {};
-    if (!refresh_token) return res.status(400).json({ message: 'Missing refresh_token' });
+    // Accept refresh token from body or cookie for flexibility
+    const bodyToken = (req.body || {}).refresh_token;
+    const cookieToken = req.cookies?.refreshToken;
+    const token = bodyToken || cookieToken;
+    if (!token) return res.status(400).json({ message: 'Missing refresh_token' });
 
-    const payload = verifyRefreshToken(refresh_token);
+    const payload = verifyRefreshToken(token);
     const access_token = signAccessToken({ sub: payload.sub, role: payload.role });
-    res.json({ access_token });
+
+    // Update access token cookie
+    res.cookie('token', access_token, cookieOptions);
+    return res.json({ access_token });
   } catch (_err) {
     res.status(401).json({ message: 'Invalid refresh token' });
   }

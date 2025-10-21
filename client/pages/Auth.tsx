@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function Auth() {
   const { toast } = useToast();
   const [params] = useSearchParams();
+  const location = useLocation();
   const role = (params.get("role") || "student").toLowerCase();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"register" | "login">("register");
@@ -48,7 +49,7 @@ export default function Auth() {
     setShowPassword(false);
     setShowConfirm(false);
   }, [mode]);
-  const { login, register } = useAuth();
+  const { login, creatorLogin, register } = useAuth();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -65,7 +66,12 @@ export default function Auth() {
         }
         await register(name, email, password, role, remember);
       } else {
-        await login(email, password, remember, role);
+        // Use creator-specific login for creators
+        if (role === "creator") {
+          await creatorLogin(email, password, remember);
+        } else {
+          await login(email, password, remember, role);
+        }
       }
 
       // Success toast
@@ -81,6 +87,40 @@ export default function Auth() {
       setConfirmPassword("");
       setRemember(false);
 
+      // Handle course enrollment after login
+      const navigationState = location.state as any;
+      
+      // Check if user came from course page with enrollment intent
+      if (navigationState?.courseId && navigationState?.action) {
+        const userRole = sessionStorage.getItem("userRole") || localStorage.getItem("userRole");
+        
+        if (userRole === "student" && navigationState.action === "cart") {
+          // Add course to cart automatically
+          try {
+            const existingCart = localStorage.getItem('studentCart');
+            let cartItems = existingCart ? JSON.parse(existingCart) : [];
+            
+            if (!cartItems.includes(navigationState.courseId)) {
+              cartItems.push(navigationState.courseId);
+              localStorage.setItem('studentCart', JSON.stringify(cartItems));
+              
+              toast({
+                title: "Course Added to Cart!",
+                description: `"${navigationState.courseTitle}" has been added to your cart.`,
+              });
+            }
+          } catch (error) {
+            console.error('Error adding course to cart after login:', error);
+          }
+        }
+        
+        // Redirect to the original course page or intended destination
+        if (navigationState.redirectTo) {
+          navigate(navigationState.redirectTo, { replace: true });
+          return;
+        }
+      }
+
       // Redirect by role or pending redirect
       const redirect = localStorage.getItem("postLoginRedirect");
       if (redirect) {
@@ -88,6 +128,7 @@ export default function Auth() {
         navigate(redirect, { replace: true });
         return;
       }
+      
       // Prefer actual stored role from auth over URL param
       const storedRole =
         sessionStorage.getItem("userRole") ||
@@ -123,6 +164,20 @@ export default function Auth() {
           <CardDescription className="text-slate-600 dark:text-slate-400">
             {roleTitle} • {mode === "register" ? "Register to continue" : "Login to continue"}
           </CardDescription>
+          
+          {/* Show context message if coming from course page */}
+          {location.state?.message && (
+            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
+                {location.state.message}
+              </p>
+              {location.state.courseTitle && (
+                <p className="text-xs text-blue-600 dark:text-blue-300 text-center mt-1 font-medium">
+                  Course: "{location.state.courseTitle}"
+                </p>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="flex justify-center gap-2 mb-5">

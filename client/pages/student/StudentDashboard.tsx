@@ -3,8 +3,10 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiGet } from "@/Api/api";
-import { ChevronDown, LayoutDashboard, List, Video, FileText, GraduationCap, ClipboardList, User, Sparkles } from "lucide-react";
+import { ChevronDown, LayoutDashboard, List, Video, FileText, GraduationCap, ClipboardList, User, Sparkles, ShoppingCart } from "lucide-react";
 import MyCourses from "./MyCourses";
+import CoursePurchase from "./CoursePurchase";
+import Cart from "./Cart";
 import RoleDashboardLayout from "@/components/RoleDashboardLayout";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -37,6 +39,8 @@ export default function StudentDashboard() {
     const [openClassRoom, setOpenClassRoom] = useState(true);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+    const [activeTab, setActiveTab] = useState<string>('dashboard');
+    const [message, setMessage] = useState<string>('');
 
     useEffect(() => {
         const p =
@@ -46,6 +50,23 @@ export default function StudentDashboard() {
             localStorage.getItem("user");
         setProfile(p ? JSON.parse(p) : null);
     }, []);
+
+    // Handle navigation state (from course detail page)
+    useEffect(() => {
+        const navigationState = location.state as any;
+        if (navigationState?.message) {
+            setMessage(navigationState.message);
+            // Clear message after 5 seconds
+            setTimeout(() => setMessage(''), 5000);
+        }
+        if (navigationState?.activeTab) {
+            setActiveTab(navigationState.activeTab);
+        }
+        // Clear navigation state
+        if (navigationState) {
+            navigate(location.pathname, { replace: true });
+        }
+    }, [location.state, navigate, location.pathname]);
 
     useEffect(() => {
         const u = localStorage.getItem("studentAvatarUrl") || undefined;
@@ -99,6 +120,8 @@ export default function StudentDashboard() {
         if (location.pathname.startsWith("/student/materials")) return "materials";
         if (location.pathname.startsWith("/student/mock-tests")) return "mock";
         if (location.pathname.startsWith("/student/my-courses")) return "my-courses";
+        if (location.pathname.startsWith("/student/course-purchase")) return "course-purchase";
+        if (location.pathname.startsWith("/student/cart")) return "cart";
         if (location.pathname.startsWith("/student/account")) return "account";
         return "home";
     }, [location.pathname]);
@@ -150,6 +173,7 @@ export default function StudentDashboard() {
             ],
         },
         { title: "My Courses", href: "/student/my-courses", icon: GraduationCap, isActive: location.pathname.startsWith("/student/my-courses"), isExpandable: false as const },
+        { title: "Course Purchase", href: "/student/course-purchase", icon: ShoppingCart, isActive: location.pathname.startsWith("/student/course-purchase"), isExpandable: false as const },
         { title: "Mock Tests", href: "/student/mock-tests", icon: ClipboardList, isActive: location.pathname.startsWith("/student/mock-tests"), isExpandable: false as const },
         { title: "Account", href: "/student/account", icon: User, isActive: location.pathname.startsWith("/student/account"), isExpandable: false as const },
     ];
@@ -200,6 +224,18 @@ export default function StudentDashboard() {
                         <div className="absolute -left-8 -bottom-8 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
                     </div>
 
+                    {/* Success Message */}
+                    {message && (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                    <span className="text-green-600 font-bold">✓</span>
+                                </div>
+                                <p className="text-green-800 font-medium">{message}</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Enhanced Stats Grid */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                         {[
@@ -236,19 +272,22 @@ export default function StudentDashboard() {
                                 <CardDescription className="text-slate-600 dark:text-slate-300">Jump right into learning</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                <Button
-                                    onClick={() => navigate("/my-courses")}
-                                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                                >
-                                    Continue Learning
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => navigate("/student/courses")}
-                                    className="w-full border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-slate-700 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300"
-                                >
-                                    Browse Courses
-                                </Button>
+                                <div className="space-y-2">
+                                    <Button
+                                        onClick={() => navigate("/my-courses")}
+                                        className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                                    >
+                                        Continue Learning
+                                    </Button>
+                                    <Button
+                                        onClick={() => navigate("/student/course-purchase")}
+                                        variant="outline"
+                                        className="w-full border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 text-purple-700 hover:text-purple-800 font-semibold rounded-xl transition-all duration-300"
+                                    >
+                                        <ShoppingCart className="w-4 h-4 mr-2" />
+                                        Browse Courses
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -497,6 +536,18 @@ export default function StudentDashboard() {
                     {section === "my-courses" && (
                         <div>
                             <MyCourses />
+                        </div>
+                    )}
+
+                    {section === "course-purchase" && (
+                        <div>
+                            <CoursePurchase />
+                        </div>
+                    )}
+
+                    {section === "cart" && (
+                        <div>
+                            <Cart />
                         </div>
                     )}
 

@@ -347,7 +347,7 @@ const ContentManagement: React.FC = () => {
                     Content Management
                 </h1>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid lg:grid-cols-2 grid-cols-1 gap-6">
                     <div className="">
                         {/* Upload Card */}
                         <div className="bg-[#1f1f1f] border border-gray-700 rounded-2xl p-6 mb-10 shadow-lg max-w-3xl mx-auto text-gray-200">
@@ -501,20 +501,20 @@ const ContentManagement: React.FC = () => {
                                     
                                     {!selectedCourseForPlaylist ? (
                                         <div className="text-yellow-400 text-sm">
-                                            ⚠️ <strong>No course selected.</strong> Please select a course in the Playlist section below to enable video-to-playlist adding.
+                                             <strong>No course selected.</strong> Please select a course in the Playlist section below to enable video-to-playlist adding.
                                         </div>
                                     ) : playlists.length === 0 ? (
                                         <div className="text-orange-400 text-sm">
-                                            📝 <strong>Course:</strong> {courses.find(c => c._id === selectedCourseForPlaylist)?.title}<br/>
-                                            ⚠️ <strong>No playlists available.</strong> Create a playlist first to add videos.
+                                             <strong>Course:</strong> {courses.find(c => c._id === selectedCourseForPlaylist)?.title}<br/>
+                                             <strong>No playlists available.</strong> Create a playlist first to add videos.
                                         </div>
                                     ) : (
                                         <div className="text-green-400 text-sm">
                                             <div className="mb-2">
-                                                📚 <strong>Course:</strong> {courses.find(c => c._id === selectedCourseForPlaylist)?.title}
+                                                 <strong>Course:</strong> {courses.find(c => c._id === selectedCourseForPlaylist)?.title}
                                             </div>
                                             <div>
-                                                📋 <strong>Available Playlists ({playlists.length}):</strong>
+                                                 <strong>Available Playlists ({playlists.length}):</strong>
                                                 <div className="mt-1 grid grid-cols-2 gap-2">
                                                     {playlists.map((playlist, index) => (
                                                         <div key={playlist._id} className="bg-gray-700 px-2 py-1 rounded text-xs">
@@ -531,11 +531,9 @@ const ContentManagement: React.FC = () => {
                                 <thead>
                                     <tr className="border-b border-gray-600">
                                         <th className="p-2">Video</th>
-                                        <th className="p-2">Date</th>
-                                        <th className="p-2">Views</th>
-                                        <th className="p-2">Comments</th>
-                                        <th className="p-2">Likes</th>
-                                        <th className="p-2">Actions</th>
+                                        <th className="p-2 text-center">Date</th>
+                                        <th className="p-2 text-center">Views</th>
+                                        <th className="p-2 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -547,19 +545,13 @@ const ContentManagement: React.FC = () => {
                                             <td className="p-2">
                                                 {video.title}
                                             </td>
-                                            <td className="p-2">
+                                            <td className="p-2 text-center">
                                                 {video.date}
                                             </td>
-                                            <td className="p-2">
+                                            <td className="p-2 text-center">
                                                 {video.views}
                                             </td>
-                                            <td className="p-2">
-                                                {video.comments}
-                                            </td>
-                                            <td className="p-2">
-                                                {video.likes}
-                                            </td>
-                                            <td className="p-2">
+                                            <td className="p-2 flex justify-center">
                                                 {selectedCourseForPlaylist && playlists.length > 0 ? (
                                                     <select
                                                         onChange={(e) => {
@@ -571,7 +563,7 @@ const ContentManagement: React.FC = () => {
                                                                     return;
                                                                 }
                                                                 handleAddVideoToPlaylist(video._id, e.target.value);
-                                                                e.target.value = ""; // Reset selection
+                                                                e.target.value = ""; 
                                                             }
                                                         }}
                                                         className="text-sm px-3 py-2 bg-gray-700 text-white border border-blue-400 rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
@@ -582,7 +574,7 @@ const ContentManagement: React.FC = () => {
                                                         </option>
                                                         {playlists.map((playlist, index) => (
                                                             <option key={playlist._id} value={playlist._id} className="bg-gray-800">
-                                                                📋 {playlist.title} ({playlist.videos?.length || 0} videos)
+                                                                 {playlist.title} ({playlist.videos?.length || 0} videos)
                                                             </option>
                                                         ))}
                                                     </select>
@@ -643,7 +635,7 @@ const ContentManagement: React.FC = () => {
                                 </div>
 
                                 {/* Playlist Creation Form */}
-                                <div className="flex gap-2 items-center">
+                                <div className="flex flex-col gap-2 w-full">
                                     <input
                                         type="text"
                                         placeholder="Playlist Name"
@@ -676,7 +668,7 @@ const ContentManagement: React.FC = () => {
 
                                 {/* Playlist Display */}
                                 {selectedCourseForPlaylist && (
-                                    <div className="mt-4">
+                                    <div className="mt-4 border-2 w-full border-white">
                                         <h4 className="text-white font-medium mb-2">
                                             Playlists for: {courses.find(c => c._id === selectedCourseForPlaylist)?.title}
                                         </h4>

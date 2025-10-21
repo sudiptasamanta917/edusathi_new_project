@@ -12,6 +12,7 @@ import {
   DollarSign,
   LogOut,
   Bell,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -91,12 +92,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [centerManagementOpen, setCenterManagementOpen] = useState(false);
   const [creatorManagementOpen, setCreatorManagementOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [userManagementOpen, setUserManagementOpen] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [purchases, setPurchases] = useState<any[]>([]);
   const [selections, setSelections] = useState<any[]>([]);
   const [loadingPurchases, setLoadingPurchases] = useState(false);
   const [loadingSelections, setLoadingSelections] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Determine if current viewer is admin (via storage userRole)
+  const role = (typeof window !== 'undefined' && (localStorage.getItem('userRole') || sessionStorage.getItem('userRole'))) || '';
+  const isAdmin = role === 'admin';
 
   const isExpandableItem = (i: NavigationItem): i is NavExpandable => i.isExpandable === true;
 
@@ -130,6 +136,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         },
       ],
     },
+    // Admin-only: User Management
+    ...(isAdmin ? [{
+      title: "User Management",
+      icon: Users,
+      isExpandable: true as const,
+      isOpen: userManagementOpen,
+      onToggle: () => setUserManagementOpen(!userManagementOpen),
+      subItems: [
+        { title: "Business List", href: "/dashboard/users/businesses", icon: List, isActive: location.pathname.startsWith("/dashboard/users/businesses") },
+        { title: "Creator List", href: "/dashboard/users/creators", icon: List, isActive: location.pathname.startsWith("/dashboard/users/creators") },
+        { title: "Student List", href: "/dashboard/users/students", icon: List, isActive: location.pathname.startsWith("/dashboard/users/students") },
+      ],
+    } as NavigationItem] : []),
      
     {
       title: "Settings",

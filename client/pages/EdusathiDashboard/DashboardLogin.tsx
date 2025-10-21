@@ -41,6 +41,11 @@ export default function DashboardLogin() {
                     name: 'Admin User',
                     role: 'Administrator'
                 }));
+                // Ensure admin role is recognized by the dashboard even if backend auth fails
+                try {
+                    localStorage.setItem('userRole', 'admin');
+                    sessionStorage.setItem('userRole', 'admin');
+                } catch {}
                 // Also try to obtain backend JWT for admin APIs (pricing management, etc.)
                 try {
                     // Try login first

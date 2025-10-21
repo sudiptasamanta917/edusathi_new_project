@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+
+
 import { GraduationCap, Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
@@ -117,30 +120,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-4">Legal</h4>
             <div className="space-y-2">
-              <a
-                href="#"
-                className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                Privacy Policy
-              </a>
-              <a
-                href="#"
-                className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                Terms of Service
-              </a>
-              <a
-                href="#"
-                className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                Cookie Policy
-              </a>
-              <a
-                href="#"
-                className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                GDPR
-              </a>
+              <Link to="/legal/privacy-policy" className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Privacy Policy</Link>
+              <Link to="/legal/terms-and-conditions" className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Terms and Conditions</Link>
+              <Link to="/legal/pricing-policy" className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Pricing Policy</Link>
+              <Link to="/legal/shipping-policy" className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Shipping Policy</Link>
+              <Link to="/legal/refund-policy" className="block text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Refund Policy</Link>
             </div>
           </div>
         </div>

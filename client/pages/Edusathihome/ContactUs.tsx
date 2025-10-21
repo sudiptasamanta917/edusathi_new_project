@@ -25,7 +25,7 @@ export default function ContactUs() {
     {
       icon: <Mail className="w-6 h-6 text-blue-500 dark:text-blue-400" />,
       title: "Email Us",
-      info: "Info@edusathi.com",
+      info: " edusathiofficial@gmail.com ",
       description: "Send us an email anytime",
     },
     {
@@ -38,7 +38,16 @@ export default function ContactUs() {
       icon: <MapPin className="w-6 h-6 text-red-500 dark:text-red-400" />,
       title: "Visit Us",
       info: "Kolkata, West Bengal, India",
-      description: "Schedule an appointment",
+      description: (
+        <a 
+          href="https://edusathi.net/invest" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-blue-600 hover:underline"
+        >
+          edusathi.net/invest
+        </a>
+      ),
     },
     {
       icon: <MessageCircle className="w-6 h-6 text-purple-500 dark:text-purple-400" />,
@@ -107,7 +116,7 @@ export default function ContactUs() {
                   <p className="text-blue-600 dark:text-blue-400 font-medium mb-1">
                     {contact.info}
                   </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer">
                     {contact.description}
                   </p>
                 </CardContent>

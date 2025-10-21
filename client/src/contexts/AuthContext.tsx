@@ -14,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string, remember?: boolean, role?: string) => Promise<void>;
+  creatorLogin: (email: string, password: string, remember?: boolean) => Promise<void>;
   register: (name: string, email: string, password: string, role?: string, remember?: boolean) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -142,6 +143,54 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error: any) {
       console.error('Login error:', error);
       throw new Error(error?.message || 'Login failed');
+    }
+  };
+
+  const creatorLogin = async (email: string, password: string, remember: boolean = false) => {
+    try {
+      const response = await AuthAPI.creatorLogin({ email, password });
+      const { creator, access_token, refresh_token } = response;
+
+      // Convert creator to user format
+      const userData = {
+        id: creator._id,
+        name: `${creator.firstName} ${creator.lastName}`,
+        email: creator.email,
+        role: 'creator'
+      };
+
+      const primary = remember ? localStorage : sessionStorage;
+      const secondary = remember ? sessionStorage : localStorage;
+      
+      // Clear secondary to avoid conflicts
+      for (const storage of [secondary]) {
+        storage.removeItem('access_token');
+        storage.removeItem('refresh_token');
+        storage.removeItem('accessToken');
+        storage.removeItem('refreshToken');
+        storage.removeItem('user');
+        storage.removeItem('userProfile');
+        storage.removeItem('isLoggedIn');
+        storage.removeItem('userRole');
+      }
+      
+      if (access_token) {
+        primary.setItem('access_token', access_token);
+        primary.setItem('accessToken', access_token);
+      }
+      if (refresh_token) {
+        primary.setItem('refresh_token', refresh_token);
+        primary.setItem('refreshToken', refresh_token);
+      }
+      primary.setItem('user', JSON.stringify(userData));
+      primary.setItem('userProfile', JSON.stringify(userData));
+      primary.setItem('isLoggedIn', 'true');
+      primary.setItem('userRole', 'creator');
+      
+      setUser(userData);
+    } catch (error: any) {
+      console.error('Creator login error:', error);
+      throw new Error(error?.message || 'Creator login failed');
     }
   };
 
@@ -278,6 +327,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     loading,
     login,
+    creatorLogin,
     register,
     logout,
     isAuthenticated: !!user,

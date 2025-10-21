@@ -28,9 +28,13 @@ export function createServer() {
   // Connect to MongoDB
   connectDB();
 
-  app.use(cors());
-  // Handle CORS preflight requests globally (Express 5 + path-to-regexp v6)
-  app.options(/.*/, cors());
+  const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+  app.use(cors({
+    origin: CLIENT_URL,
+    credentials: true
+  }));
+  // Handle CORS preflight requests globally
+  app.options(/.*/, cors({ origin: CLIENT_URL, credentials: true }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());

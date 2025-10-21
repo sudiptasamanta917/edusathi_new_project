@@ -132,14 +132,18 @@ const creatorSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Pre-save middleware to populate name field from firstName and lastName
-creatorSchema.pre('save', function(next) {
-    if (this.firstName && this.lastName && !this.name) {
-        this.name = `${this.firstName} ${this.lastName}`;
-    } else if (this.name && !this.firstName && !this.lastName) {
+// Pre-save middleware to populate name field from firstName and/or lastName
+creatorSchema.pre('validate', function(next) {
+    // If no explicit `name` but at least one of firstName/lastName is provided, build name
+    if (!this.name && (this.firstName || this.lastName)) {
+        const f = this.firstName ? String(this.firstName).trim() : '';
+        const l = this.lastName ? String(this.lastName).trim() : '';
+        this.name = `${f}${f && l ? ' ' : ''}${l}`.trim();
+    } else if (this.name && (!this.firstName || !this.lastName)) {
+        // If name exists but firstName/lastName are missing, split name into parts
         const nameParts = this.name.trim().split(' ');
-        this.firstName = nameParts[0] || '';
-        this.lastName = nameParts.slice(1).join(' ') || '';
+        this.firstName = this.firstName || nameParts[0] || '';
+        this.lastName = this.lastName || nameParts.slice(1).join(' ') || '';
     }
     next();
 });

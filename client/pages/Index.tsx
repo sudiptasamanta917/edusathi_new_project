@@ -15,6 +15,7 @@ import FinalCTA from "@/components/home/sections/FinalCTA";
 import CourseVideos from "@/components/home/sections/CourseVideos";
 import TrendingVideos from "@/components/home/sections/TrendingVideos";
 import AllVideos from "@/components/home/sections/AllVideos";
+import AllCourses from "@/components/home/sections/AllCourses";
 
 export default function Index() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -29,6 +30,7 @@ export default function Index() {
               <main className="">
                   <EnhancedHeroSection />
                   <ValueProposition />
+                  <AllCourses />
                   <AllVideos />
                   <TrendingVideos />
                   <CourseVideos />

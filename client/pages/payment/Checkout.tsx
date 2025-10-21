@@ -1,5 +1,7 @@
 // File: Checkout.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { StudentAPI } from "@/Api/api";
 
 type CartItem = {
     id: number;
@@ -8,23 +10,55 @@ type CartItem = {
     price: number;
     quantity: number;
     image: string;
+    courseId?: string;
 };
 
 const Checkout: React.FC = () => {
-    const [cart, setCart] = useState<CartItem[]>([
-        {
-            id: 1,
-            name: "The Puff Sweater",
-            variant: "Medium | Heathered Oat",
-            price: 125,
-            quantity: 1,
-            image: "https://via.placeholder.com/64x64.png?text=Product",
-        },
-    ]);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [cart, setCart] = useState<CartItem[]>([]);
     const [promo, setPromo] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+
+    useEffect(() => {
+        // Prefer courses passed from Cart.tsx via navigate state
+        const stateCourses = (location.state as any)?.courses as any[] | undefined;
+        if (Array.isArray(stateCourses) && stateCourses.length) {
+            const items: CartItem[] = stateCourses.map((c, idx) => ({
+                id: idx + 1,
+                name: c.title,
+                variant: c.creator || "",
+                price: Number(c.price) || 0,
+                quantity: 1,
+                image: c.thumbnail || "https://via.placeholder.com/64x64.png?text=Course",
+                courseId: c.courseId,
+            }));
+            setCart(items);
+            return;
+        }
+
+        // Fallback: load from localStorage 'studentCart'
+        try {
+            const saved = localStorage.getItem('studentCart');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                const items: CartItem[] = (parsed || []).map((c: any, idx: number) => ({
+                    id: idx + 1,
+                    name: c.title,
+                    variant: c.creator || "",
+                    price: Number(c.price) || 0,
+                    quantity: 1,
+                    image: c.thumbnail || "https://via.placeholder.com/64x64.png?text=Course",
+                    courseId: c.courseId,
+                }));
+                setCart(items);
+            }
+        } catch (e) {
+            console.error('Failed to load cart for checkout', e);
+        }
+    }, [location.state]);
 
     const subtotal = cart.reduce(
         (sum, item) => sum + item.price * item.quantity,
@@ -32,6 +66,90 @@ const Checkout: React.FC = () => {
     );
     const shipping = 0;
     const total = subtotal + shipping;
+
+    const handlePlaceOrder = async () => {
+        try {
+            if (!cart.length) return;
+
+            const token =
+                sessionStorage.getItem("access_token") ||
+                localStorage.getItem("access_token") ||
+                sessionStorage.getItem("accessToken") ||
+                localStorage.getItem("accessToken");
+            const role =
+                localStorage.getItem("userRole") ||
+                sessionStorage.getItem("userRole");
+
+            if (!token || role !== 'student') {
+                navigate('/auth?role=student');
+                return;
+            }
+
+            const courses = cart
+                .map(ci => ci.courseId)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0)
+                .map(id => ({ courseId: id }));
+
+            if (!courses.length) {
+                alert('No valid courses in cart to purchase.');
+                return;
+            }
+
+            const order = await StudentAPI.courseCreateOrder(courses);
+            if (!order?.success || !order?.order?.id) {
+                throw new Error("Failed to create order");
+            }
+
+            const options: any = {
+                key: order.key_id,
+                amount: order.order.amount,
+                currency: order.order.currency,
+                name: "Edusathi",
+                description: `Course purchase (${courses.length})`,
+                order_id: order.order.id,
+                handler: async function (response: any) {
+                    try {
+                        const verification = await StudentAPI.courseVerify({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            orderId: order.serverOrderId,
+                        });
+                        if (verification?.success) {
+                            // Clear purchased cart
+                            try { localStorage.removeItem('studentCart'); } catch {}
+                            alert("Payment successful! Redirecting to My Courses...");
+                            navigate("/my-courses", { replace: true });
+                        } else {
+                            alert("Payment verification failed. Please contact support.");
+                        }
+                    } catch (e) {
+                        console.error("Payment verification error:", e);
+                        alert("Payment verification failed. Please contact support.");
+                    }
+                },
+                modal: { ondismiss: function () { console.log("Payment modal closed"); } },
+                theme: { color: "#3B82F6" },
+            };
+
+            const startCheckout = () => {
+                const rzp = new (window as any).Razorpay(options);
+                rzp.open();
+            };
+
+            if (!(window as any).Razorpay) {
+                const script = document.createElement("script");
+                script.src = "https://checkout.razorpay.com/v1/checkout.js";
+                script.onload = startCheckout;
+                document.body.appendChild(script);
+            } else {
+                startCheckout();
+            }
+        } catch (err) {
+            console.error('Checkout payment init error', err);
+            alert('Failed to initiate payment. Please try again.');
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10 flex flex-col items-center">
@@ -101,95 +219,12 @@ const Checkout: React.FC = () => {
                                 Payment Method
                             </span>
                         </div>
-                        {/* Add payment fields if needed */}
-                    </div>
-                </div>
-                {/* Cart Summary Column */}
-                <div className="w-full lg:w-96 p-8 flex-shrink-0 space-y-5">
-                    {/* Cart header */}
-                    <div className="flex justify-between items-center mb-4">
-                        <span className="font-semibold flex items-center gap-1">
-                            🛒 Cart ({cart.length})
-                        </span>
-                        <span className="font-bold">${subtotal}</span>
-                    </div>
-                    {/* Cart Item */}
-                    <div className="flex gap-3 bg-gray-50 dark:bg-gray-900 rounded p-2 border dark:border-gray-700">
-                        <img
-                            className="w-16 h-16 rounded object-cover"
-                            src={cart[0].image}
-                            alt="Product"
-                        />
-                        <div className="flex-1">
-                            <div className="font-semibold text-gray-900 dark:text-gray-100">
-                                {cart[0].name}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-300">
-                                {cart[0].variant}
-                            </div>
-                            <div className="mt-1 text-gray-700 dark:text-gray-100">
-                                ${cart[0].price}
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <button
-                                className="border p-1 px-2 rounded"
-                                onClick={() =>
-                                    setCart((cart) =>
-                                        cart.map((item) =>
-                                            item.id === cart[0].id
-                                                ? {
-                                                      ...item,
-                                                      quantity: Math.max(
-                                                          1,
-                                                          item.quantity - 1
-                                                      ),
-                                                  }
-                                                : item
-                                        )
-                                    )
-                                }
-                            >
-                                -
-                            </button>
-                            <span className="mx-1">{cart[0].quantity}</span>
-                            <button
-                                className="border p-1 px-2 rounded"
-                                onClick={() =>
-                                    setCart((cart) =>
-                                        cart.map((item) =>
-                                            item.id === cart[0].id
-                                                ? {
-                                                      ...item,
-                                                      quantity:
-                                                          item.quantity + 1,
-                                                  }
-                                                : item
-                                        )
-                                    )
-                                }
-                            >
-                                +
-                            </button>
-                        </div>
-                    </div>
-                    {/* Promo Code */}
-                    <div className="flex gap-2">
-                        <input
-                            className="w-full border rounded p-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-100"
-                            placeholder="Gift or promo code"
-                            value={promo}
-                            onChange={(e) => setPromo(e.target.value)}
-                        />
-                        <button className="bg-gray-200 dark:bg-gray-700 rounded px-4 text-gray-600 dark:text-gray-200">
-                            Apply
-                        </button>
                     </div>
                     {/* Summary */}
                     <div>
                         <div className="flex justify-between text-sm py-1">
                             <span>Subtotal</span>
-                            <span>${subtotal}</span>
+                            <span>₹{subtotal}</span>
                         </div>
                         <div className="flex justify-between text-sm py-1">
                             <span>Estimated Shipping</span>
@@ -197,7 +232,7 @@ const Checkout: React.FC = () => {
                         </div>
                         <div className="flex justify-between py-2 font-bold text-lg border-t border-gray-200 dark:border-gray-700">
                             <span>Total</span>
-                            <span>${total}</span>
+                            <span>₹{total}</span>
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-300 mt-3 flex gap-1 items-center">
                             <span>🇺🇸</span>
@@ -234,7 +269,7 @@ const Checkout: React.FC = () => {
                         </div>
                     </div>
                     {/* Place Order Button */}
-                    <button className="w-full mt-3 bg-gray-700 dark:bg-gray-900 text-white rounded py-3 font-bold text-base">
+                    <button onClick={handlePlaceOrder} className="w-full mt-3 bg-gray-700 dark:bg-gray-900 text-white rounded py-3 font-bold text-base">
                         Place Order
                     </button>
                 </div>

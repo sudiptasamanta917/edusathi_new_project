@@ -204,6 +204,8 @@ export const StudentAPI = {
   createOrder: (items: { contentId: string }[]) => apiPost<any>("/api/student/create-order", { items }),
   verify: (payload: any) => apiPost<any>("/api/student/verify", payload),
   myCourses: () => apiGet<any>("/api/student/my-courses"),
+  courseCreateOrder: (courses: { courseId: string }[]) => apiPost<any>("/api/student/course/create-order", { courses }),
+  courseVerify: (payload: any) => apiPost<any>("/api/student/course/verify", payload),
 };
 
 // Templates

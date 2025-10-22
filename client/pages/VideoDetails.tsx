@@ -1,6 +1,7 @@
 import Navbar from "@/components/layout/Navbar";
-import React, { useEffect, useState } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import React from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { StudentAPI } from "@/Api/api";
 
 interface VideoDetailsData {
     _id: string;
@@ -54,6 +55,80 @@ const VideoDetails: React.FC = () => {
 
     const handlePlay = () => {
         navigate(`/watch/${video._id}`, { state: { video } });
+    };
+
+    const handleBuy = async () => {
+        try {
+            const token =
+                sessionStorage.getItem("access_token") ||
+                localStorage.getItem("access_token") ||
+                sessionStorage.getItem("accessToken") ||
+                localStorage.getItem("accessToken");
+            const role =
+                localStorage.getItem("userRole") ||
+                sessionStorage.getItem("userRole");
+
+            if (!token || (role && role !== "student")) {
+                navigate("/auth?role=student");
+                return;
+            }
+
+            const order = await StudentAPI.createOrder([{ contentId: video._id }]);
+            if (!order?.success || !order?.order?.id) {
+                throw new Error("Failed to create order");
+            }
+
+            const options: any = {
+                key: order.key_id,
+                amount: order.order.amount,
+                currency: order.order.currency,
+                name: "Edusathi",
+                description: video.title,
+                order_id: order.order.id,
+                handler: async function (response: any) {
+                    try {
+                        const verification = await StudentAPI.verify({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            orderId: order.serverOrderId,
+                        });
+                        if (verification?.success) {
+                            alert("Payment successful! Redirecting to My Courses...");
+                            navigate("/my-courses", { replace: true });
+                        } else {
+                            alert("Payment verification failed. Please contact support.");
+                        }
+                    } catch (e) {
+                        console.error("Payment verification error:", e);
+                        alert("Payment verification failed. Please contact support.");
+                    }
+                },
+                modal: {
+                    ondismiss: function () {
+                        console.log("Payment modal closed");
+                    },
+                },
+                theme: { color: "#3B82F6" },
+            };
+
+            const startCheckout = () => {
+                const rzp = new (window as any).Razorpay(options);
+                rzp.open();
+            };
+
+            if (!(window as any).Razorpay) {
+                const script = document.createElement("script");
+                script.src = "https://checkout.razorpay.com/v1/checkout.js";
+                script.onload = startCheckout;
+                document.body.appendChild(script);
+            } else {
+                startCheckout();
+            }
+        } catch (error) {
+            console.error("Payment init error:", error);
+            alert("Failed to initiate payment. Please try again.");
+        }
     };
 
     return (
@@ -179,96 +254,19 @@ const VideoDetails: React.FC = () => {
                         </div>
 
                         {video.isPremium ? (
-                            <div>
-                                {/* Tabs */}
-                                <div className="flex gap-4 border-b dark:border-gray-700">
-                                    <button className="py-2 px-4 font-semibold border-b-2 border-purple-700 text-purple-700 dark:text-purple-400">
-                                        Personal
-                                    </button>
-                                    <button className="py-2 px-4 font-semibold text-gray-500 dark:text-gray-400">
-                                        Teams
-                                    </button>
-                                </div>
-
-                                {/* Subscription Info */}
-                                <div className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2 mt-2">
-                                    <span>
-                                        This Premium course is included in plans{" "}
-                                        <br />
-                                        <strong>
-                                            Subscribe to Edusathi’s top
-                                            courses{" "}
-                                        </strong>
-                                        <br />
-                                        Get this course, plus 26,000+ of our
-                                        top-rated courses, with Personal
-                                        Plan.{" "}
-                                    </span>
-                                </div>
-
-                                {/* Buttons */}
-                                <button
-                                    onClick={() => navigate("/checkout")}
-                                    className="w-full mt-4 py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded text-lg transition"
-                                >
-                                    Start subscription
-                                </button>
-                                <span className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                                    Starting a plan per month
-                                    <br />
-                                    Cancel anytime
-                                </span>
-
-                                <div className="flex items-center my-2">
-                                    <span className="flex-1 border-b dark:border-gray-700 border-gray-300"></span>
-                                    <span className="px-2 text-gray-400">
-                                        or
-                                    </span>
-                                    <span className="flex-1 border-b dark:border-gray-700 border-gray-300"></span>
-                                </div>
-
-                                {/* Pricing */}
-                                <div className="flex flex-col gap-2">
-                                    <div className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                        ₹{video.course.price}
-                                    </div>
-                                    <button className="w-full py-3 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-bold rounded border border-purple-600 mt-2">
-                                        Add to cart
-                                    </button>
-                                    <button
-                                        onClick={() => navigate("/checkout")}
-                                        className="w-full mt-4 py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded text-lg transition"
-                                    >
-                                        Buy now
-                                    </button>
-                                </div>
-                            </div>
+                            <button
+                                onClick={handleBuy}
+                                className="w-full py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded text-lg transition"
+                            >
+                                Buy Now
+                            </button>
                         ) : (
-                            <div>
-                                {/* Subscription Info */}
-                                <div className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2 mt-2">
-                                    <span className="mt-1">&#9888;</span>
-                                    <span>
-                                        This Free course is EduSathi's Verified
-                                        Course <br />
-                                        <strong>
-                                            Subscribe to See Edusathi’s top
-                                            courses{" "}
-                                        </strong>
-                                        <br />
-                                        See this course, plus 26,000+ of our
-                                        top-rated courses{" "}
-                                    </span>
-                                </div>
-
-                                {/* Buttons */}
-                                <button
-                                    onClick={handlePlay}
-                                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded text-lg transition"
-                                >
-                                    ▶ Play Video
-                                </button>
-                            </div>
+                            <button
+                                onClick={handlePlay}
+                                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded text-lg transition"
+                            >
+                                ▶ Play Video
+                            </button>
                         )}
                     </div>
                 </div>

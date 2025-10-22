@@ -20,6 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   refreshProfile: () => Promise<void>;
   updateAvatar: (file: File) => Promise<void>;
+  loginWithGoogle: (idToken: string, remember?: boolean, role?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -236,6 +237,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (idToken: string, remember: boolean = false, role?: string) => {
+    try {
+      const response = await AuthAPI.google({ id_token: idToken, role });
+      const { user: userData, access_token, refresh_token } = response;
+
+      const primary = remember ? localStorage : sessionStorage;
+      const secondary = remember ? sessionStorage : localStorage;
+      for (const storage of [secondary]) {
+        storage.removeItem('access_token');
+        storage.removeItem('refresh_token');
+        storage.removeItem('accessToken');
+        storage.removeItem('refreshToken');
+        storage.removeItem('user');
+        storage.removeItem('userProfile');
+        storage.removeItem('isLoggedIn');
+        storage.removeItem('userRole');
+        storage.removeItem('businessTemplate');
+        storage.removeItem('businessAvatarUrl');
+        storage.removeItem('planPurchased');
+      }
+      for (const storage of [localStorage, sessionStorage]) {
+        storage.removeItem('businessTemplate');
+        storage.removeItem('businessAvatarUrl');
+        storage.removeItem('planPurchased');
+      }
+      if (access_token) primary.setItem('access_token', access_token);
+      if (refresh_token) primary.setItem('refresh_token', refresh_token);
+      if (access_token) primary.setItem('accessToken', access_token);
+      if (refresh_token) primary.setItem('refreshToken', refresh_token);
+      primary.setItem('user', JSON.stringify(userData));
+      primary.setItem('userProfile', JSON.stringify(userData));
+      primary.setItem('isLoggedIn', 'true');
+      if (userData?.role) primary.setItem('userRole', userData.role);
+
+      setUser(userData);
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      throw new Error(error?.message || 'Google Sign-In failed');
+    }
+  };
+
   const logout = () => {
     for (const storage of [localStorage, sessionStorage]) {
       storage.removeItem('access_token');
@@ -291,6 +333,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: !!user,
     refreshProfile,
     updateAvatar,
+    loginWithGoogle,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

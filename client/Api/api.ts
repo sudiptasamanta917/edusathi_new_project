@@ -200,6 +200,14 @@ export const PaymentAPI = {
   myPurchases: () => apiGet<any>("/api/payment/purchases/my"),
 };
 
+export const StudentAPI = {
+  createOrder: (items: { contentId: string }[]) => apiPost<any>("/api/student/create-order", { items }),
+  verify: (payload: any) => apiPost<any>("/api/student/verify", payload),
+  myCourses: () => apiGet<any>("/api/student/my-courses"),
+  courseCreateOrder: (courses: { courseId: string }[]) => apiPost<any>("/api/student/course/create-order", { courses }),
+  courseVerify: (payload: any) => apiPost<any>("/api/student/course/verify", payload),
+};
+
 // Templates
 export const TemplatesAPI = {
   apply: (templateId: string) => apiPost<any>("/api/templates/apply", { templateId }),
@@ -215,6 +223,12 @@ export const AuthAPI = {
     }),
   register: (payload: { name: string; email: string; password: string; role?: string }) =>
     request<any>("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  google: (payload: { id_token: string; role?: string }) =>
+    request<any>("/api/auth/google", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

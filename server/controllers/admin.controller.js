@@ -77,3 +77,33 @@ export const getRecentTemplateSelections = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// List users by role for admin
+export const getUsersByRole = async (req, res) => {
+  try {
+    const role = String(req.query.role || '').toLowerCase();
+    const limitParam = Number(req.query.limit || 100);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 500) : 100;
+    const pageParam = Number(req.query.page || 1);
+    const page = Number.isFinite(pageParam) ? Math.max(pageParam, 1) : 1;
+
+    let Model;
+    if (role === 'student' || role === 'students') Model = Student;
+    else if (role === 'creator' || role === 'creators') Model = Creator;
+    else if (role === 'business' || role === 'businesses') Model = Business;
+    else if (role === 'admin' || role === 'admins') Model = AdminModel;
+    else return res.status(400).json({ error: 'Invalid role' });
+
+    const users = await Model.find({})
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .select('name email avatarUrl isActive createdAt')
+      .lean();
+
+    res.json({ users });
+  } catch (err) {
+    console.error('getUsersByRole error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};

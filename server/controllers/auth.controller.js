@@ -5,6 +5,7 @@ import Creator from '../models/creator.model.js';
 import Admin from '../models/Admin.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { getFileUrl } from '../middleware/upload.js';
+import { OAuth2Client } from 'google-auth-library';
 import { cookieOptions } from '../utils/cookieOptions.js';
 
 export const register = async (req, res) => {
@@ -160,6 +161,35 @@ export const updateAvatar = async (req, res) => {
   } catch (error) {
     console.error('Update avatar error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const googleAuth = async (req, res) => {
+  try {
+    const { id_token, role } = req.body || {};
+    if (!id_token) return res.status(400).json({ message: 'Missing id_token' });
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const client = new OAuth2Client(clientId);
+    const ticket = await client.verifyIdToken({ idToken: id_token, audience: clientId });
+    const payload = ticket.getPayload() || {};
+    const email = String(payload.email || '').toLowerCase();
+    if (!email) return res.status(400).json({ message: 'No email in token' });
+    const name = payload.name || email.split('@')[0];
+    const picture = payload.picture || '';
+    const selectedRole = (role || 'student').toLowerCase();
+    const Model = getRoleModel(selectedRole);
+    if (!Model) return res.status(400).json({ message: 'Invalid role' });
+    let account = await Model.findOne({ email });
+    if (!account) {
+      const hash = await bcrypt.hash(String(Math.random()) + Date.now(), 10);
+      account = await Model.create({ name, email, password: hash, avatarUrl: picture });
+    }
+    const access_token = signAccessToken({ sub: account._id.toString(), role: selectedRole });
+    const refresh_token = signRefreshToken({ sub: account._id.toString(), role: selectedRole });
+    res.json({ user: sanitizeRoleUser(account, selectedRole), access_token, refresh_token });
+  } catch (err) {
+    console.error('google auth error', err);
+    res.status(401).json({ message: 'Invalid Google token' });
   }
 };
 

@@ -28,10 +28,70 @@ const dummyTrendingVideos: Video[] = [
         isPremium: true,
         isBestseller: true,
     },
-    // ... 
+    {
+        id: "2",
+        title: "100 Days of Code: The Complete Python Pro...",
+        author: "Dr. Angela Yu, Developer and Lead...",
+        rating: 4.7,
+        reviews: "394,476",
+        price: "₹519",
+        originalPrice: "₹3,199",
+        image: freeCourseImage5,
+        isPremium: true,
+        isBestseller: true,
+    },
+    {
+        id: "3",
+        title: "100 Days of Code: The Complete Python Pro...",
+        author: "Dr. Angela Yu, Developer and Lead...",
+        rating: 4.7,
+        reviews: "394,476",
+        price: "₹519",
+        originalPrice: "₹3,199",
+        image: freeCourseImage5,
+        isPremium: true,
+        isBestseller: true,
+    },
+    {
+        id: "4",
+        title: "100 Days of Code: The Complete Python Pro...",
+        author: "Dr. Angela Yu, Developer and Lead...",
+        rating: 4.7,
+        reviews: "394,476",
+        price: "₹519",
+        originalPrice: "₹3,199",
+        image: freeCourseImage5,
+        isPremium: true,
+        isBestseller: true,
+    },
+    {
+        id: "5",
+        title: "100 Days of Code: The Complete Python Pro...",
+        author: "Dr. Angela Yu, Developer and Lead...",
+        rating: 4.7,
+        reviews: "394,476",
+        price: "₹519",
+        originalPrice: "₹3,199",
+        image: freeCourseImage5,
+        isPremium: true,
+        isBestseller: true,
+    },
+    {
+        id: "6",
+        title: "100 Days of Code: The Complete Python Pro...",
+        author: "Dr. Angela Yu, Developer and Lead...",
+        rating: 4.7,
+        reviews: "394,476",
+        price: "₹519",
+        originalPrice: "₹3,199",
+        image: freeCourseImage5,
+        isPremium: true,
+        isBestseller: true,
+    },
+    // ...
 ];
 
-const VISIBLE_COUNT = 5;
+const VISIBLE_COUNT = 6;
 
 function VideoCarousel({
     videos,

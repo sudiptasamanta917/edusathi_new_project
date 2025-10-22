@@ -71,6 +71,7 @@ const router = createBrowserRouter(
             <Route path="/legal/shipping-policy" element={<ShippingPolicy />} />
             <Route path="/legal/refund-policy" element={<RefundPolicy />} />
             <Route path="/course/:id" element={<CourseDetail />} /> 
+            
             <Route
                 path="/student"
                 element={

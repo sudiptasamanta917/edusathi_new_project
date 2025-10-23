@@ -48,6 +48,8 @@ import ShippingPolicy from "./pages/footerpages/ShippingPolicy";
 import RefundPolicy from "./pages/footerpages/RefundPolicy";
 import CourseDetail from "./pages/CourseDetail";
 import Checkout from "./pages/payment/Checkout";
+import WatchPage from "./pages/WatchPage";
+import TestWatch from "./pages/TestWatch";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +74,8 @@ const router = createBrowserRouter(
             <Route path="/legal/shipping-policy" element={<ShippingPolicy />} />
             <Route path="/legal/refund-policy" element={<RefundPolicy />} />
             <Route path="/course/:id" element={<CourseDetail />} />
+            <Route path="/watch/:id" element={<WatchPage />} />
+            <Route path="/test-watch/:id" element={<TestWatch />} />
             <Route path="/checkout" element={<Checkout />} />
 
             <Route

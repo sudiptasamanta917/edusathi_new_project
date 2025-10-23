@@ -3,7 +3,8 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Clock, Star, Play, Lock, BookOpen } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { PublicAPI } from "@/Api/api";
+import { PublicAPI, StudentAPI } from "@/Api/api";
+import { getCourseThumbnail } from "@/utils/imageUtils";
 
 type Course = {
   _id: string;
@@ -16,6 +17,7 @@ type Course = {
   isPaid: boolean;
   price: number;
   originalPrice?: number;
+  previewVideo?: string;
   creator: {
     _id: string;
     name: string;
@@ -60,9 +62,11 @@ export default function CourseDetail() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const [course, setCourse] = useState<Course | null>(location.state?.course || null);
-  const [loading, setLoading] = useState(!course);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [enrollmentStatus, setEnrollmentStatus] = useState<any>(null);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
 
   useEffect(() => {
     // If course data is not available from navigation state, fetch it from API
@@ -98,6 +102,39 @@ export default function CourseDetail() {
       setLoading(false);
     }
   };
+
+  // Check enrollment status for logged in students
+  const checkEnrollmentStatus = async () => {
+    if (!course || !id) return;
+
+    const token = 
+      sessionStorage.getItem('access_token') || 
+      localStorage.getItem('access_token') || 
+      sessionStorage.getItem('accessToken') || 
+      localStorage.getItem('accessToken');
+    
+    const userRole = 
+      sessionStorage.getItem('userRole') || 
+      localStorage.getItem('userRole');
+
+    if (!token || userRole !== 'student') return;
+
+    try {
+      const response = await StudentAPI.getCourseEnrollmentStatus(id);
+      if (response.success) {
+        setEnrollmentStatus(response);
+      }
+    } catch (error) {
+      console.error('Error checking enrollment status:', error);
+    }
+  };
+
+  // Check enrollment status when course loads
+  useEffect(() => {
+    if (course) {
+      checkEnrollmentStatus();
+    }
+  }, [course]);
 
   // Loading state
   if (loading) {
@@ -295,6 +332,12 @@ export default function CourseDetail() {
   const handleAddToCart = () => {
     if (!course) return;
     
+    // For free courses, enroll directly instead of adding to cart
+    if (!course.isPaid) {
+      handleFreeCourseEnrollment();
+      return;
+    }
+    
     try {
       // Get existing cart from localStorage
       const existingCart = localStorage.getItem('studentCart');
@@ -346,39 +389,124 @@ export default function CourseDetail() {
         }
       });
     } else {
-      // For free courses, add to cart and redirect to student dashboard
-      try {
-        const existingCart = localStorage.getItem('studentCart');
-        let cartItems = existingCart ? JSON.parse(existingCart) : [];
-        
-        // Check if course is already in cart
-        if (!cartItems.some((item: any) => item.courseId === course._id)) {
-          const cartItem = {
-            courseId: course._id,
+      // For free courses, enroll directly via API
+      handleFreeCourseEnrollment();
+    }
+  };
+
+  // Handle free course enrollment
+  const handleFreeCourseEnrollment = async () => {
+    if (!course) return;
+
+    console.log('Starting free course enrollment for:', course._id);
+
+    try {
+      setEnrollmentLoading(true);
+      
+      // Call API to enroll in free course
+      console.log('Calling StudentAPI.enrollInFreeCourse...');
+      const response = await StudentAPI.enrollInFreeCourse(course._id);
+      console.log('Enrollment API response:', response);
+      
+      if (response.success) {
+        // Update enrollment status
+        setEnrollmentStatus({
+          success: true,
+          isEnrolled: true,
+          enrollmentDetails: {
+            enrolledAt: new Date().toISOString(),
+            progress: 0,
+            completedVideos: 0,
+            totalWatchTime: 0,
+            isCompleted: false
+          },
+          courseInfo: {
+            _id: course._id,
             title: course.title,
-            price: 0,
-            thumbnail: course.thumbnail,
-            creator: course.creator?.name,
-            addedAt: new Date().toISOString()
-          };
-          
-          cartItems.push(cartItem);
-          localStorage.setItem('studentCart', JSON.stringify(cartItems));
-        }
-        
-        // Redirect to student dashboard
-        navigate('/student', { 
-          state: { 
-            message: 'Free course added! You can start learning now.',
-            activeTab: 'courses'
+            isPaid: course.isPaid,
+            price: course.price
           }
         });
         
-      } catch (error) {
-        console.error('Error enrolling in free course:', error);
-        alert('Failed to enroll in course. Please try again.');
+        // Refresh enrollment status from server
+        await checkEnrollmentStatus();
+        
+        alert('Successfully enrolled in the course! You can now access all videos.');
+      } else {
+        alert('Enrollment failed: ' + (response.message || 'Unknown error'));
+      }
+      
+    } catch (error: any) {
+      console.error('Error enrolling in free course:', error);
+      alert(error.message || 'Failed to enroll in course. Please try again.');
+    } finally {
+      setEnrollmentLoading(false);
+    }
+  };
+
+  // Handle video click
+  const handleVideoClick = (videoId: string, isLocked: boolean) => {
+    if (!course) return;
+    
+    console.log('Video clicked:', { videoId, isLocked, courseId: course._id });
+    
+    // Check if user is logged in
+    const token = 
+      sessionStorage.getItem('access_token') || 
+      localStorage.getItem('access_token') || 
+      sessionStorage.getItem('accessToken') || 
+      localStorage.getItem('accessToken') || 
+      localStorage.getItem('token');
+    
+    const userRole = 
+      sessionStorage.getItem('userRole') || 
+      localStorage.getItem('userRole');
+    
+    console.log('Auth check:', { token: !!token, userRole });
+    
+    if (!token) {
+      // Redirect to login if not logged in
+      navigate('/auth', { 
+        state: { 
+          redirectTo: `/course/${course._id}`,
+          message: 'Please login to watch videos'
+        }
+      });
+      return;
+    }
+
+    if (userRole !== 'student') {
+      alert('Only students can watch videos. Please login with a student account.');
+      navigate('/auth', { 
+        state: { 
+          redirectTo: `/course/${course._id}`,
+          message: 'Please login with a student account to watch videos'
+        }
+      });
+      return;
+    }
+
+    if (course.isPaid) {
+      // Check if user is enrolled in paid course
+      const isEnrolled = enrollmentStatus?.isEnrolled || false;
+      
+      if (!isEnrolled) {
+        alert('This video is locked. Please enroll in the course to access all videos. You can watch the preview video above.');
+        return;
       }
     }
+
+    console.log('Navigating to watch page:', `/watch/${videoId}`);
+    
+    // Navigate to watch page with course and video info
+    navigate(`/watch/${videoId}`, {
+      state: {
+        courseId: course._id,
+        videoId: videoId,
+        courseTitle: course.title,
+        fromCourse: true
+      }
+    });
   };
 
   return (
@@ -505,8 +633,19 @@ export default function CourseDetail() {
                   {/* Video List */}
                   {playlist.videos && playlist.videos.length > 0 ? (
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {playlist.videos.map((video, vIndex) => (
-                        <div key={video._id || vIndex} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      {playlist.videos.map((video, vIndex) => {
+                        const isVideoLocked = safeIsPaid && !enrollmentStatus?.isEnrolled;
+                        const isVideoCompleted = enrollmentStatus?.enrollmentDetails?.completedVideos > vIndex;
+                        
+                        return (
+                          <div 
+                            key={video._id || vIndex} 
+                            className={`p-4 transition-colors ${
+                              isVideoLocked ? 'hover:bg-red-50 dark:hover:bg-red-900/10 cursor-not-allowed opacity-75' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer'
+                            }`}
+                            onClick={() => handleVideoClick(video._id || '', isVideoLocked)}
+                          >
+                        
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3 flex-1">
                               <div className="w-6 h-6 bg-gray-100 dark:bg-gray-600 rounded flex items-center justify-center flex-shrink-0">
@@ -514,7 +653,7 @@ export default function CourseDetail() {
                               </div>
                               
                               {video.thumbnail && (
-                                <div className="w-16 h-12 bg-gray-200 dark:bg-gray-600 rounded overflow-hidden flex-shrink-0">
+                                <div className="w-16 h-12 bg-gray-200 dark:bg-gray-600 rounded overflow-hidden flex-shrink-0 relative">
                                   <img 
                                     // src={video.thumbnail} 
                                     src="/class5.avif"
@@ -524,6 +663,9 @@ export default function CourseDetail() {
                                       e.currentTarget.style.display = 'none';
                                     }}
                                   />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                                    <Play className="w-4 h-4 text-white" />
+                                  </div>
                                 </div>
                               )}
                               
@@ -550,17 +692,41 @@ export default function CourseDetail() {
                             </div>
                             
                             <div className="flex items-center gap-2 ml-3">
-                              {video.isLocked ? (
-                                <Lock className="w-4 h-4 text-gray-400" />
+                              {isVideoLocked ? (
+                                <div className="flex items-center gap-1 text-red-500">
+                                  <Lock className="w-4 h-4" />
+                                  <span className="text-xs">Enroll Required</span>
+                                </div>
+                              ) : isVideoCompleted ? (
+                                <div className="flex items-center gap-1 text-green-500">
+                                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                  <span className="text-xs">Completed</span>
+                                </div>
+                              ) : enrollmentStatus?.isEnrolled ? (
+                                <div className="flex items-center gap-1 text-blue-500">
+                                  <Play className="w-4 h-4" />
+                                  <span className="text-xs">Available</span>
+                                </div>
+                              ) : video.isLocked ? (
+                                <div className="flex items-center gap-1 text-gray-400">
+                                  <Lock className="w-4 h-4" />
+                                  <span className="text-xs">Locked</span>
+                                </div>
                               ) : (
-                                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium px-3 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                                  Preview
-                                </button>
+                                <div className="flex items-center gap-1 text-blue-600">
+                                  <Play className="w-4 h-4" />
+                                  <span className="text-xs font-medium">Watch</span>
+                                </div>
                               )}
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="p-8 text-center text-gray-500 dark:text-gray-400">
@@ -585,12 +751,61 @@ export default function CourseDetail() {
         <div className="lg:col-span-1 space-y-6">
           {/* Pricing Box */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            <img
-              // src={safeThumbnail}
-              src="/class5.avif"
-              alt={safeTitle}
-              className="w-full h-48 object-cover"
-            />
+            {/* Preview Video for Paid Courses */}
+            {(() => {
+              console.log('Preview video check:', {
+                safeIsPaid,
+                hasPreviewVideo: !!course?.previewVideo,
+                previewVideoUrl: course?.previewVideo
+              });
+              
+              // For testing - use a sample video if no preview video exists
+              const testVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+              const videoUrl = course?.previewVideo || (safeIsPaid ? testVideoUrl : null);
+              
+              return safeIsPaid ? (
+                <div className="relative">
+                  {videoUrl ? (
+                    <video
+                      className="w-full h-48 object-cover"
+                      controls
+                      autoPlay
+                      muted
+                      poster={getCourseThumbnail(safeThumbnail)}
+                      onError={(e) => {
+                        console.error('Video error:', e);
+                        console.log('Failed video URL:', videoUrl);
+                      }}
+                      onLoadStart={() => console.log('Video loading started')}
+                      onCanPlay={() => console.log('Video can play')}
+                    >
+                      <source src={videoUrl} type="video/mp4" />
+                      Your browser does not support the video tag.
+                    </video>
+                  ) : (
+                    <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      <div className="text-center">
+                        <Play className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                        <p className="text-gray-500 text-sm">Preview video not available</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+                    {videoUrl ? 'Preview' : 'No Preview'}
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={getCourseThumbnail(safeThumbnail)}
+                  alt={safeTitle}
+                  className="w-full h-48 object-cover"
+                  onError={(e) => {
+                    console.log('Thumbnail load error:', safeThumbnail);
+                    (e.target as HTMLImageElement).src = "/class5.avif";
+                  }}
+                />
+              );
+            })()}
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -603,18 +818,97 @@ export default function CourseDetail() {
                 )}
               </div>
 
-              <button 
-                onClick={() => handleEnrollment('cart')}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition mb-3"
-              >
-                {safeIsPaid ? 'Add to cart' : 'Enroll for Free'}
-              </button>
-              <button 
-                onClick={() => handleEnrollment('buy')}
-                className="w-full border border-purple-600 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 py-3 rounded-lg font-semibold transition"
-              >
-                {safeIsPaid ? 'Buy now' : 'Start Learning'}
-              </button>
+              {enrollmentStatus?.isEnrolled ? (
+                <div className="space-y-4">
+                  {/* Enrollment Status */}
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-green-700 dark:text-green-300 font-semibold">Enrolled</span>
+                    </div>
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      Enrolled on {new Date(enrollmentStatus.enrollmentDetails?.enrolledAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                    
+                    {/* Progress Information */}
+                    {enrollmentStatus.enrollmentDetails && (
+                      <div className="mt-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Progress</span>
+                          <span className="font-medium text-green-600 dark:text-green-400">
+                            {enrollmentStatus.enrollmentDetails.progress || 0}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${enrollmentStatus.enrollmentDetails.progress || 0}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                          <span>{enrollmentStatus.enrollmentDetails.completedVideos || 0} videos completed</span>
+                          {enrollmentStatus.enrollmentDetails.isCompleted && (
+                            <span className="text-green-600 dark:text-green-400 font-medium">✓ Completed</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2">
+                    <button 
+                      onClick={() => {
+                        // Navigate to first video of the course
+                        if (course?.playlists?.[0]?.videos?.[0]) {
+                          const firstVideo = course.playlists[0].videos[0];
+                          navigate(`/watch/${firstVideo._id}`, {
+                            state: {
+                              video: firstVideo,
+                              courseId: course._id,
+                              courseTitle: course.title,
+                              fromCourse: true
+                            }
+                          });
+                        } else {
+                          navigate(`/student`, { state: { activeTab: 'courses' } });
+                        }
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"
+                    >
+                      <Play className="w-4 h-4" />
+                      Continue Learning
+                    </button>
+                    <button 
+                      onClick={() => navigate(`/student`, { state: { activeTab: 'courses' } })}
+                      className="w-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 py-3 rounded-lg font-semibold transition"
+                    >
+                      Go to My Courses
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <button 
+                    onClick={() => handleEnrollment('cart')}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition"
+                    disabled={enrollmentLoading}
+                  >
+                    {enrollmentLoading ? 'Processing...' : (safeIsPaid ? 'Add to cart' : 'Enroll for Free')}
+                  </button>
+                  <button 
+                    onClick={() => handleEnrollment('buy')}
+                    className="w-full border border-purple-600 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 py-3 rounded-lg font-semibold transition"
+                    disabled={enrollmentLoading}
+                  >
+                    {safeIsPaid ? 'Buy now' : 'Start Learning'}
+                  </button>
+                </div>
+              )}
 
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center">
                  • Full Lifetime Access

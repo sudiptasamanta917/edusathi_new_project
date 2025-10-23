@@ -78,6 +78,8 @@ router.get("/public/courses", async (req, res) => {
         email: course.creator.email
       } : null,
       playlistCount: course.playlists?.length || 0,
+      enrollmentCount: course.enrolledStudents?.length || 0,
+      totalEnrollments: course.enrolledStudents?.length || 0,
       createdAt: course.createdAt,
       updatedAt: course.updatedAt
     }));
@@ -191,8 +193,10 @@ router.get("/public/courses/:courseId", async (req, res) => {
           videos
         };
       }),
+      enrollmentCount: course.enrolledStudents?.length || 0,
+      totalEnrollments: course.enrolledStudents?.length || 0,
       stats: {
-        totalStudents: Math.floor(Math.random() * 50000) + 10000, // Mock stats
+        totalStudents: course.enrolledStudents?.length || 0, // Real enrollment count
         totalReviews: Math.floor(Math.random() * 5000) + 1000,
         averageRating: course.averageRating || 4.7,
         totalDuration: `${((course.playlists || []).reduce((acc, p) => acc + ((p.videos || []).length), 0) || 1) * 5} hours`,
@@ -261,8 +265,7 @@ function parseBoolean(value) {
 
 
 // create a new course (for verified creators).............
-router.post(
-    "/courses/create",
+router.post("/courses/create",
     authenticateToken,
     requireRole(["creator"]),
     upload.fields([
@@ -460,8 +463,7 @@ router.post(
 );
 
 // Get all courses for a creator (with pagination and filters)
-router.get(
-    "/courses",
+router.get("/courses",
     authenticateToken,
     requireRole(["creator"]),
     async (req, res) => {
@@ -506,13 +508,23 @@ router.get(
             const sortOptions = {};
             sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
 
-            // Get courses with pagination
+            // Get courses with pagination and enrollment count
             const courses = await Course.find(filter)
                 .populate("creator", "firstName lastName email")
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(parseInt(limit))
                 .select("-__v");
+
+            // Add enrollment count to each course
+            const coursesWithEnrollmentCount = courses.map(course => {
+                const enrollmentCount = course.enrolledStudents ? course.enrolledStudents.length : 0;
+                return {
+                    ...course.toObject(),
+                    enrollmentCount,
+                    totalEnrollments: enrollmentCount // For backward compatibility
+                };
+            });
 
             // Get total count for pagination
             const totalCourses = await Course.countDocuments(filter);
@@ -522,7 +534,7 @@ router.get(
                 status: true,
                 message: "Courses retrieved successfully",
                 data: {
-                    courses,
+                    courses: coursesWithEnrollmentCount,
                     pagination: {
                         currentPage: parseInt(page),
                         totalPages,
@@ -543,8 +555,7 @@ router.get(
 );
 
 // Get particular course by ID.............
-router.get(
-    "/courses/:id",
+router.get("/courses/:id",
     authenticateToken,
     requireRole(["creator"]),
     async (req, res) => {
@@ -569,10 +580,17 @@ router.get(
                 });
             }
 
+            // Add enrollment count to course data
+            const courseWithEnrollmentCount = {
+                ...course.toObject(),
+                enrollmentCount: course.enrolledStudents ? course.enrolledStudents.length : 0,
+                totalEnrollments: course.enrolledStudents ? course.enrolledStudents.length : 0
+            };
+
             res.status(200).json({
                 status: true,
                 message: "Course retrieved successfully",
-                data: course,
+                data: courseWithEnrollmentCount,
             });
         } catch (error) {
             console.error("Get course error:", error);

@@ -5,6 +5,8 @@ import Content from '../models/Content.js';
 import Enrollment from '../models/Enrollment.js';
 import Course from '../models/course.model.js';
 import CourseOrder from '../models/CourseOrder.js';
+import Video from '../models/video.model.js';
+import Student from '../models/Student.js';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy_key',
@@ -202,9 +204,806 @@ export const verifyStudentCoursePayment = async (req, res) => {
       }
     }
 
+    // Update student's enrolled courses and purchase history
+    try {
+      const student = await Student.findById(order.userId);
+      if (student) {
+        // Add courses to enrolledCourses if not already present
+        for (const item of order.items) {
+          const isAlreadyEnrolled = student.enrolledCourses.some(
+            ec => ec.course.toString() === item.courseId.toString()
+          );
+          
+          if (!isAlreadyEnrolled) {
+            student.enrolledCourses.push({
+              course: item.courseId,
+              enrolledAt: new Date(),
+              progress: 0,
+              completedVideos: [],
+              totalWatchTime: 0,
+              isCompleted: false
+            });
+          }
+        }
+
+        // Add to purchase history
+        student.purchaseHistory.push({
+          order: order._id,
+          courses: order.items.map(item => item.courseId),
+          amount: order.amount,
+          currency: order.currency,
+          paymentMethod: 'razorpay',
+          razorpay_payment_id: razorpay_payment_id,
+          purchasedAt: new Date()
+        });
+
+        // Update statistics
+        student.updateStats();
+        await student.save();
+      }
+    } catch (error) {
+      console.error('Error updating student enrollment:', error);
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('verifyStudentCoursePayment error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get video with access control for students
+export const getVideoForStudent = async (req, res) => {
+  try {
+    const { courseId, videoId } = req.params;
+    const userId = req.user?.sub;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Find the course first
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    // Find the video directly
+    const video = await Video.findById(videoId);
+    if (!video) {
+      return res.status(404).json({ message: 'Video not found' });
+    }
+
+    // Check if video belongs to this course (optional - for security)
+    let targetVideo = null;
+    let playlistIndex = -1;
+    let videoIndex = -1;
+
+    for (let i = 0; i < course.playlists.length; i++) {
+      const playlist = course.playlists[i];
+      for (let j = 0; j < playlist.videos.length; j++) {
+        if (playlist.videos[j].toString() === videoId) {
+          targetVideo = video;
+          playlistIndex = i;
+          videoIndex = j;
+          break;
+        }
+      }
+      if (targetVideo) break;
+    }
+
+    if (!targetVideo) {
+      return res.status(404).json({ message: 'Video not found in this course' });
+    }
+
+    // Check access permissions
+    let hasFullAccess = false;
+    let isPreviewOnly = false;
+
+    if (!course.isPaid) {
+      // Free course - full access
+      hasFullAccess = true;
+    } else {
+      // Paid course - check enrollment
+      const isEnrolled = course.enrolledStudents.some(
+        enrollment => enrollment.student.toString() === userId
+      );
+      
+      if (isEnrolled) {
+        hasFullAccess = true;
+      } else {
+        // Not enrolled - NO ACCESS to individual videos
+        // Preview is only available on course detail page via previewVideo field
+        return res.status(403).json({ 
+          message: 'Access denied. Please enroll in this course to watch videos. Preview is available on the course page.',
+          requiresEnrollment: true,
+          courseId: course._id,
+          courseTitle: course.title,
+          coursePrice: course.price,
+          hasPreview: !!course.previewVideo,
+          previewMessage: 'Watch the course preview on the course detail page'
+        });
+      }
+    }
+
+    // Prepare response (video is already fetched above)
+    const response = {
+      success: true,
+      video: {
+        _id: video._id,
+        title: video.title,
+        description: video.description,
+        videoUrl: hasFullAccess ? video.videoUrl : null,
+        previewUrl: isPreviewOnly ? video.videoUrl : null,
+        thumbnail: video.thumbnail,
+        duration: video.duration,
+        quality: video.quality,
+        views: video.views,
+        likes: video.likes
+      },
+      course: {
+        _id: course._id,
+        title: course.title,
+        isPaid: course.isPaid,
+        price: course.price
+      },
+      access: {
+        hasFullAccess,
+        isPreviewOnly,
+        requiresEnrollment: !hasFullAccess && !isPreviewOnly
+      },
+      playlist: {
+        index: playlistIndex,
+        title: course.playlists[playlistIndex]?.title,
+        totalVideos: course.playlists[playlistIndex]?.videos.length || 0
+      },
+      navigation: {
+        videoIndex,
+        hasNext: videoIndex < (course.playlists[playlistIndex]?.videos.length - 1),
+        hasPrevious: videoIndex > 0
+      }
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('getVideoForStudent error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Enroll student in free course
+export const enrollInFreeCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user?.sub;
+    
+    console.log('Free course enrollment request:', { courseId, userId });
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Find the course
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    // Check if course is free
+    if (course.isPaid && course.price > 0) {
+      return res.status(400).json({ 
+        message: 'This is a paid course. Please use the payment system to enroll.',
+        requiresPayment: true,
+        price: course.price
+      });
+    }
+
+    // Check if already enrolled
+    const isAlreadyEnrolled = course.enrolledStudents.some(
+      enrollment => enrollment.student.toString() === userId
+    );
+
+    if (isAlreadyEnrolled) {
+      return res.status(400).json({ message: 'Already enrolled in this course' });
+    }
+
+    // Enroll student in course
+    await Course.findByIdAndUpdate(courseId, {
+      $addToSet: {
+        enrolledStudents: { 
+          student: userId, 
+          enrolledAt: new Date(), 
+          progress: 0 
+        }
+      },
+      $inc: { 
+        totalEnrollments: 1, 
+        enrollmentCount: 1 
+      }
+    });
+
+    // Update student's enrolled courses
+    try {
+      const student = await Student.findById(userId);
+      if (student) {
+        // Initialize enrolledCourses if it doesn't exist
+        if (!student.enrolledCourses) {
+          student.enrolledCourses = [];
+        }
+        
+        // Check if course is already in student's enrolled courses
+        const isAlreadyInStudentCourses = student.enrolledCourses.some(
+          ec => ec.course.toString() === courseId
+        );
+        
+        if (!isAlreadyInStudentCourses) {
+          student.enrolledCourses.push({
+            course: courseId,
+            enrolledAt: new Date(),
+            progress: 0,
+            completedVideos: [],
+            totalWatchTime: 0,
+            isCompleted: false
+          });
+          
+          // Update statistics
+          student.updateStats();
+          await student.save();
+          
+          console.log('Student enrollment updated successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Error updating student enrollment for free course:', error);
+    }
+
+    res.json({
+      success: true,
+      message: 'Successfully enrolled in the course',
+      courseId: course._id,
+      courseTitle: course.title
+    });
+
+  } catch (error) {
+    console.error('enrollInFreeCourse error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update video progress for student
+export const updateVideoProgress = async (req, res) => {
+  try {
+    const { courseId, videoId } = req.params;
+    const { timeWatched, lastPosition, completed } = req.body;
+    const userId = req.user?.sub;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Find the video
+    const video = await Video.findById(videoId);
+    if (!video) {
+      return res.status(404).json({ message: 'Video not found' });
+    }
+
+    // Check if student is enrolled in the course
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    const isEnrolled = course.enrolledStudents.some(
+      enrollment => enrollment.student.toString() === userId
+    );
+
+    if (!isEnrolled && course.isPaid) {
+      return res.status(403).json({ message: 'Not enrolled in this course' });
+    }
+
+    // Update or create watch time record
+    const existingWatchIndex = video.watchTime.findIndex(
+      watch => watch.student.toString() === userId
+    );
+
+    if (existingWatchIndex >= 0) {
+      // Update existing record
+      video.watchTime[existingWatchIndex] = {
+        student: userId,
+        timeWatched: timeWatched || video.watchTime[existingWatchIndex].timeWatched,
+        lastPosition: lastPosition || video.watchTime[existingWatchIndex].lastPosition,
+        completed: completed !== undefined ? completed : video.watchTime[existingWatchIndex].completed,
+        watchedAt: new Date()
+      };
+    } else {
+      // Create new record
+      video.watchTime.push({
+        student: userId,
+        timeWatched: timeWatched || 0,
+        lastPosition: lastPosition || 0,
+        completed: completed || false,
+        watchedAt: new Date()
+      });
+    }
+
+    await video.save();
+
+    // Update student's course progress
+    try {
+      const student = await Student.findById(userId);
+      if (student) {
+        const enrolledCourseIndex = student.enrolledCourses.findIndex(
+          ec => ec.course.toString() === courseId
+        );
+
+        if (enrolledCourseIndex >= 0) {
+          // Update last watched video and time
+          student.enrolledCourses[enrolledCourseIndex].lastWatchedVideo = videoId;
+          student.enrolledCourses[enrolledCourseIndex].lastWatchedAt = new Date();
+          student.enrolledCourses[enrolledCourseIndex].totalWatchTime += (timeWatched || 0);
+
+          // Add to completed videos if completed
+          if (completed && !student.enrolledCourses[enrolledCourseIndex].completedVideos.includes(videoId)) {
+            student.enrolledCourses[enrolledCourseIndex].completedVideos.push(videoId);
+          }
+
+          // Calculate progress percentage
+          const totalVideos = course.playlists.reduce((total, playlist) => {
+            return total + (playlist.videos ? playlist.videos.length : 0);
+          }, 0);
+
+          const completedVideosCount = student.enrolledCourses[enrolledCourseIndex].completedVideos.length;
+          const progressPercentage = totalVideos > 0 ? Math.round((completedVideosCount / totalVideos) * 100) : 0;
+          
+          student.enrolledCourses[enrolledCourseIndex].progress = progressPercentage;
+
+          // Mark course as completed if 100% progress
+          if (progressPercentage >= 100 && !student.enrolledCourses[enrolledCourseIndex].isCompleted) {
+            student.enrolledCourses[enrolledCourseIndex].isCompleted = true;
+            student.enrolledCourses[enrolledCourseIndex].completedAt = new Date();
+          }
+
+          // Update student statistics
+          student.updateStats();
+          await student.save();
+        }
+      }
+    } catch (error) {
+      console.error('Error updating student progress:', error);
+    }
+
+    // Update course progress if video is completed
+    if (completed) {
+      const enrollmentIndex = course.enrolledStudents.findIndex(
+        enrollment => enrollment.student.toString() === userId
+      );
+
+      if (enrollmentIndex >= 0) {
+        // Calculate total videos in course
+        const totalVideos = course.playlists.reduce((total, playlist) => {
+          return total + (playlist.videos ? playlist.videos.length : 0);
+        }, 0);
+
+        // Count completed videos for this student
+        const completedVideos = await Video.countDocuments({
+          'watchTime.student': userId,
+          'watchTime.completed': true,
+          course: courseId
+        });
+
+        // Update progress percentage
+        const progressPercentage = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
+        
+        course.enrolledStudents[enrollmentIndex].progress = progressPercentage;
+        await course.save();
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Progress updated successfully',
+      progress: {
+        timeWatched,
+        lastPosition,
+        completed
+      }
+    });
+
+  } catch (error) {
+    console.error('updateVideoProgress error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get student's enrolled courses with progress
+export const getEnrolledCourses = async (req, res) => {
+  try {
+    const userId = req.user?.sub;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Get student with enrolled courses
+    const student = await Student.findById(userId)
+      .populate({
+        path: 'enrolledCourses.course',
+        populate: {
+          path: 'creator',
+          select: 'name email profilePicture'
+        }
+      });
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Format enrolled courses with detailed progress
+    const enrolledCourses = student.enrolledCourses.map(enrollment => {
+      const course = enrollment.course;
+      
+      // Calculate total videos in course
+      const totalVideos = course.playlists.reduce((total, playlist) => {
+        return total + (playlist.videos ? playlist.videos.length : 0);
+      }, 0);
+
+      return {
+        _id: course._id,
+        title: course.title,
+        description: course.description,
+        thumbnail: course.thumbnail,
+        subject: course.subject,
+        grade: course.grade,
+        level: course.level,
+        creator: course.creator,
+        isPaid: course.isPaid,
+        price: course.price,
+        
+        // Detailed progress from Student model
+        enrolledAt: enrollment.enrolledAt,
+        progress: {
+          percentage: enrollment.progress || 0,
+          completedVideos: enrollment.completedVideos.length,
+          totalVideos: totalVideos,
+          totalWatchTime: enrollment.totalWatchTime || 0,
+          isCompleted: enrollment.isCompleted || false,
+          completedAt: enrollment.completedAt,
+          lastWatchedVideo: enrollment.lastWatchedVideo,
+          lastWatchedAt: enrollment.lastWatchedAt
+        },
+        
+        // Course structure
+        totalPlaylists: course.playlists.length,
+        totalVideos: totalVideos
+      };
+    });
+
+    // Sort by last watched or enrollment date
+    enrolledCourses.sort((a, b) => {
+      const aDate = a.progress.lastWatchedAt || a.enrolledAt;
+      const bDate = b.progress.lastWatchedAt || b.enrolledAt;
+      return new Date(bDate) - new Date(aDate);
+    });
+
+    res.json({
+      success: true,
+      courses: enrolledCourses,
+      stats: {
+        totalEnrolled: student.stats.totalCoursesEnrolled,
+        totalCompleted: student.stats.totalCoursesCompleted,
+        totalWatchTime: student.stats.totalWatchTime,
+        averageProgress: student.stats.averageProgress
+      }
+    });
+
+  } catch (error) {
+    console.error('getEnrolledCourses error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get student learning analytics
+export const getStudentAnalytics = async (req, res) => {
+  try {
+    const userId = req.user?.sub;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const student = await Student.findById(userId)
+      .populate('enrolledCourses.course', 'title subject grade isPaid price')
+      .populate('purchaseHistory.courses', 'title price');
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Calculate detailed analytics
+    const analytics = {
+      overview: {
+        totalCoursesEnrolled: student.stats.totalCoursesEnrolled,
+        totalCoursesCompleted: student.stats.totalCoursesCompleted,
+        totalWatchTime: student.stats.totalWatchTime,
+        averageProgress: student.stats.averageProgress,
+        completionRate: student.stats.totalCoursesEnrolled > 0 ? 
+          Math.round((student.stats.totalCoursesCompleted / student.stats.totalCoursesEnrolled) * 100) : 0
+      },
+      
+      courseBreakdown: {
+        bySubject: {},
+        byGrade: {},
+        byType: { free: 0, paid: 0 }
+      },
+      
+      recentActivity: student.enrolledCourses
+        .filter(enrollment => enrollment.lastWatchedAt)
+        .sort((a, b) => new Date(b.lastWatchedAt) - new Date(a.lastWatchedAt))
+        .slice(0, 5)
+        .map(enrollment => ({
+          courseId: enrollment.course._id,
+          courseTitle: enrollment.course.title,
+          lastWatchedAt: enrollment.lastWatchedAt,
+          progress: enrollment.progress
+        })),
+      
+      purchaseHistory: student.purchaseHistory.map(purchase => ({
+        orderId: purchase.order,
+        courses: purchase.courses.map(course => ({
+          id: course._id,
+          title: course.title,
+          price: course.price
+        })),
+        amount: purchase.amount,
+        currency: purchase.currency,
+        purchasedAt: purchase.purchasedAt
+      }))
+    };
+
+    // Calculate subject and grade breakdown
+    student.enrolledCourses.forEach(enrollment => {
+      const course = enrollment.course;
+      
+      // By subject
+      if (!analytics.courseBreakdown.bySubject[course.subject]) {
+        analytics.courseBreakdown.bySubject[course.subject] = 0;
+      }
+      analytics.courseBreakdown.bySubject[course.subject]++;
+      
+      // By grade
+      if (!analytics.courseBreakdown.byGrade[course.grade]) {
+        analytics.courseBreakdown.byGrade[course.grade] = 0;
+      }
+      analytics.courseBreakdown.byGrade[course.grade]++;
+      
+      // By type
+      if (course.isPaid) {
+        analytics.courseBreakdown.byType.paid++;
+      } else {
+        analytics.courseBreakdown.byType.free++;
+      }
+    });
+
+    res.json({
+      success: true,
+      analytics
+    });
+
+  } catch (error) {
+    console.error('getStudentAnalytics error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get course enrollment status for a student
+export const getCourseEnrollmentStatus = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user?.sub;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Check if course exists
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    // Check enrollment in Course model
+    const isEnrolledInCourse = course.enrolledStudents.some(
+      enrollment => enrollment.student.toString() === userId
+    );
+
+    // Check enrollment in Student model
+    const student = await Student.findById(userId);
+    let enrollmentDetails = null;
+    
+    if (student) {
+      const studentEnrollment = student.enrolledCourses.find(
+        ec => ec.course.toString() === courseId
+      );
+      
+      if (studentEnrollment) {
+        enrollmentDetails = {
+          enrolledAt: studentEnrollment.enrolledAt,
+          progress: studentEnrollment.progress,
+          completedVideos: studentEnrollment.completedVideos.length,
+          totalWatchTime: studentEnrollment.totalWatchTime,
+          isCompleted: studentEnrollment.isCompleted,
+          lastWatchedAt: studentEnrollment.lastWatchedAt
+        };
+      }
+    }
+
+    const isEnrolled = isEnrolledInCourse && enrollmentDetails;
+
+    res.json({
+      success: true,
+      isEnrolled,
+      enrollmentDetails,
+      courseInfo: {
+        _id: course._id,
+        title: course.title,
+        isPaid: course.isPaid,
+        price: course.price
+      }
+    });
+
+  } catch (error) {
+    console.error('getCourseEnrollmentStatus error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Enroll in a paid course (after payment verification)
+export const enrollInPaidCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { paymentId, orderId } = req.body;
+    const userId = req.user?.sub;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Find the course
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    // Check if already enrolled
+    const isAlreadyEnrolled = course.enrolledStudents.some(
+      enrollment => enrollment.student.toString() === userId
+    );
+
+    if (isAlreadyEnrolled) {
+      return res.status(400).json({ message: 'Already enrolled in this course' });
+    }
+
+    // For paid courses, verify payment (simplified for now)
+    if (course.isPaid && !paymentId) {
+      return res.status(400).json({ message: 'Payment verification required for paid courses' });
+    }
+
+    // Add student to course enrollment
+    course.enrolledStudents.push({
+      student: userId,
+      enrolledAt: new Date(),
+      paymentId: paymentId || null,
+      orderId: orderId || null
+    });
+
+    await course.save();
+
+    // Update student's enrolled courses
+    const student = await Student.findById(userId);
+    if (student) {
+      if (!student.enrolledCourses) {
+        student.enrolledCourses = [];
+      }
+      
+      student.enrolledCourses.push({
+        course: courseId,
+        enrolledAt: new Date(),
+        progress: 0,
+        completedVideos: []
+      });
+      
+      await student.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Successfully enrolled in course',
+      courseId: courseId,
+      enrolledAt: new Date()
+    });
+
+  } catch (error) {
+    console.error('enrollInPaidCourse error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+// Get detailed enrolled courses with progress
+export const getMyEnrolledCoursesDetailed = async (req, res) => {
+  try {
+    const userId = req.user?.sub;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Find courses where student is enrolled
+    const enrolledCourses = await Course.find({
+      'enrolledStudents.student': userId
+    }).populate('creator', 'name email profilePicture').select(
+      'title description thumbnail isPaid price subject grade level playlists enrolledStudents createdAt'
+    );
+
+    // Get student's progress data
+    const student = await Student.findById(userId).select('enrolledCourses');
+
+    const coursesWithProgress = enrolledCourses.map(course => {
+      const enrollment = course.enrolledStudents.find(
+        e => e.student.toString() === userId
+      );
+
+      const studentProgress = student?.enrolledCourses?.find(
+        ec => ec.course.toString() === course._id.toString()
+      );
+
+      // Calculate total videos in course
+      let totalVideos = 0;
+      course.playlists.forEach(playlist => {
+        totalVideos += playlist.videos.length;
+      });
+
+      const completedVideos = studentProgress?.completedVideos?.length || 0;
+      const progressPercentage = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
+
+      console.log('Course thumbnail data:', {
+        courseId: course._id,
+        title: course.title,
+        thumbnail: course.thumbnail,
+        thumbnailType: typeof course.thumbnail
+      });
+
+      return {
+        _id: course._id,
+        title: course.title,
+        description: course.description,
+        thumbnail: course.thumbnail,
+        isPaid: course.isPaid,
+        price: course.price,
+        subject: course.subject,
+        grade: course.grade,
+        level: course.level,
+        creator: course.creator,
+        enrolledAt: enrollment?.enrolledAt,
+        paymentId: enrollment?.paymentId,
+        progress: {
+          percentage: progressPercentage,
+          completedVideos: completedVideos,
+          totalVideos: totalVideos,
+          lastAccessed: studentProgress?.lastAccessed
+        }
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      courses: coursesWithProgress,
+      totalEnrolled: coursesWithProgress.length
+    });
+
+  } catch (error) {
+    console.error('getMyEnrolledCoursesDetailed error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

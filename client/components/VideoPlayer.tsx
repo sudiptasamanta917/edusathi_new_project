@@ -7,9 +7,12 @@ type Props = {
     src?: string;
     poster?: string;
     autoPlay?: boolean;
+    courseId?: string;
+    videoId?: string;
+    onProgressUpdate?: (progress: { timeWatched: number; lastPosition: number; completed: boolean }) => void;
 };
 
-const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
+const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false, courseId, videoId, onProgressUpdate }) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const hlsRef = useRef<Hls | null>(null);
     const [loading, setLoading] = useState<boolean>(!!src);
@@ -83,6 +86,45 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
                 setError('Video failed to load (native HLS).');
                 setLoading(false);
             };
+
+            // Add progress tracking
+            if (onProgressUpdate && courseId && videoId) {
+                const handleTimeUpdate = () => {
+                    const currentTime = video.currentTime;
+                    const duration = video.duration;
+                    const completed = duration > 0 && (currentTime / duration) >= 0.9; // 90% completion
+                    
+                    onProgressUpdate({
+                        timeWatched: currentTime,
+                        lastPosition: currentTime,
+                        completed
+                    });
+                };
+
+                const handleEnded = () => {
+                    if (onProgressUpdate) {
+                        onProgressUpdate({
+                            timeWatched: video.duration,
+                            lastPosition: video.duration,
+                            completed: true
+                        });
+                    }
+                };
+
+                video.addEventListener('timeupdate', handleTimeUpdate);
+                video.addEventListener('ended', handleEnded);
+
+                // Cleanup function will remove these listeners
+                return () => {
+                    video.removeEventListener('timeupdate', handleTimeUpdate);
+                    video.removeEventListener('ended', handleEnded);
+                    if (hlsRef.current) {
+                        hlsRef.current.destroy();
+                        hlsRef.current = null;
+                    }
+                    if (video) video.src = "";
+                };
+            }
         } else {
             // Non-HLS or if Hls.js is not supported
             video.src = src;
@@ -95,6 +137,34 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
                 setError('Video failed to load. If this is an HLS stream, the browser may not support it and Hls.js is unavailable.');
                 setLoading(false);
             };
+
+            // Add progress tracking for non-HLS videos too
+            if (onProgressUpdate && courseId && videoId) {
+                const handleTimeUpdate = () => {
+                    const currentTime = video.currentTime;
+                    const duration = video.duration;
+                    const completed = duration > 0 && (currentTime / duration) >= 0.9; // 90% completion
+                    
+                    onProgressUpdate({
+                        timeWatched: currentTime,
+                        lastPosition: currentTime,
+                        completed
+                    });
+                };
+
+                const handleEnded = () => {
+                    if (onProgressUpdate) {
+                        onProgressUpdate({
+                            timeWatched: video.duration,
+                            lastPosition: video.duration,
+                            completed: true
+                        });
+                    }
+                };
+
+                video.addEventListener('timeupdate', handleTimeUpdate);
+                video.addEventListener('ended', handleEnded);
+            }
         }
 
         return () => {

@@ -201,11 +201,95 @@ export const PaymentAPI = {
 };
 
 export const StudentAPI = {
+  // Payment related
   createOrder: (items: { contentId: string }[]) => apiPost<any>("/api/student/create-order", { items }),
   verify: (payload: any) => apiPost<any>("/api/student/verify", payload),
-  myCourses: () => apiGet<any>("/api/student/my-courses"),
   courseCreateOrder: (courses: { courseId: string }[]) => apiPost<any>("/api/student/course/create-order", { courses }),
   courseVerify: (payload: any) => apiPost<any>("/api/student/course/verify", payload),
+  
+  // Course and video management
+  myCourses: () => apiGet<any>("/api/student/my-courses"),
+  getEnrolledCourses: () => {
+    const headers = authHeaders();
+    return request<any>("/api/student/enrolled-courses", {
+      method: "GET",
+      headers,
+    });
+  },
+  
+  // Video watching with access control
+  getVideo: (courseId: string, videoId: string) => {
+    const headers = authHeaders();
+    return request<any>(`/api/student/courses/${courseId}/videos/${videoId}`, {
+      method: "GET",
+      headers,
+    });
+  },
+  
+  // Enroll in free course
+  enrollInFreeCourse: (courseId: string) => {
+    const headers = {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    };
+    return request<any>(`/api/student/courses/${courseId}/enroll`, {
+      method: "POST",
+      headers,
+    });
+  },
+  
+  // Update video progress
+  updateVideoProgress: (courseId: string, videoId: string, progress: any) => {
+    const headers = {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    };
+    return request<any>(`/api/student/courses/${courseId}/videos/${videoId}/progress`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(progress),
+    });
+  },
+
+  // Enroll in paid course (after payment)
+  enrollInPaidCourse: (courseId: string, paymentData: any) => {
+    const headers = {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    };
+    return request<any>(`/api/student/courses/${courseId}/enroll-paid`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(paymentData),
+    });
+  },
+
+  // Get student learning analytics
+  getAnalytics: () => {
+    const headers = authHeaders();
+    return request<any>("/api/student/analytics", {
+      method: "GET",
+      headers,
+    });
+  },
+
+  // Get enrollment status for a course
+  getCourseEnrollmentStatus: (courseId: string) => {
+    const headers = authHeaders();
+    return request<any>(`/api/student/courses/${courseId}/enrollment-status`, {
+      method: "GET",
+      headers,
+    });
+  },
+
+  // Get detailed enrolled courses with progress
+  getMyEnrolledCoursesDetailed: () => {
+    const headers = authHeaders();
+    return request<any>("/api/student/enrolled-courses-detailed", {
+      method: "GET",
+      headers,
+    });
+  },
 };
 
 // Templates
@@ -383,4 +467,6 @@ export const PublicAPI = {
       },
     });
   },
-}; 
+};
+
+ 

@@ -7,6 +7,9 @@ import Course from '../models/course.model.js';
 import CourseOrder from '../models/CourseOrder.js';
 import Video from '../models/video.model.js';
 import Student from '../models/Student.js';
+import Creator from '../models/creator.model.js';
+import Business from '../models/Business.js';
+import Admin from '../models/Admin.js';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy_key',
@@ -326,6 +329,39 @@ export const getVideoForStudent = async (req, res) => {
       }
     }
 
+    // Determine the best video URL to use
+    const getVideoUrl = () => {
+      if (!hasFullAccess && !isPreviewOnly) return null;
+      
+      console.log('Video URL selection:', {
+        videoId: video._id,
+        hasHlsUrl: !!video.hlsUrl,
+        hlsProcessing: video.hlsProcessing,
+        hasVideoUrl: !!video.videoUrl,
+        hlsUrl: video.hlsUrl,
+        videoUrl: video.videoUrl
+      });
+      
+      // Prefer HLS URL if available and ready
+      if (video.hlsUrl && !video.hlsProcessing) {
+        console.log('Using HLS URL:', video.hlsUrl);
+        return video.hlsUrl;
+      }
+      
+      // Fallback to regular video URL
+      if (video.videoUrl) {
+        console.log('Using regular video URL:', video.videoUrl);
+        return video.videoUrl;
+      }
+      
+      // For development/testing - use a sample video if no URL is available
+      const sampleVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+      console.log('No video URL found, using sample video for testing:', sampleVideoUrl);
+      return sampleVideoUrl;
+    };
+
+    const videoUrl = getVideoUrl();
+
     // Prepare response (video is already fetched above)
     const response = {
       success: true,
@@ -333,8 +369,11 @@ export const getVideoForStudent = async (req, res) => {
         _id: video._id,
         title: video.title,
         description: video.description,
-        videoUrl: hasFullAccess ? video.videoUrl : null,
-        previewUrl: isPreviewOnly ? video.videoUrl : null,
+        videoUrl: videoUrl,
+        hlsUrl: hasFullAccess ? video.hlsUrl : null,
+        isHlsReady: !video.hlsProcessing && !!video.hlsUrl,
+        hlsProcessing: video.hlsProcessing,
+        previewUrl: isPreviewOnly ? videoUrl : null,
         thumbnail: video.thumbnail,
         duration: video.duration,
         quality: video.quality,
@@ -378,20 +417,46 @@ export const enrollInFreeCourse = async (req, res) => {
     const { courseId } = req.params;
     const userId = req.user?.sub;
     
-    console.log('Free course enrollment request:', { courseId, userId });
+    console.log('Free course enrollment request:', { 
+      courseId, 
+      userId, 
+      userRole: req.user?.role,
+      headers: req.headers.authorization ? 'Present' : 'Missing'
+    });
     
     if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      console.error('Enrollment failed: No userId found in token');
+      return res.status(401).json({ message: 'Unauthorized - No user ID found' });
+    }
+
+    // Validate courseId
+    if (!courseId || !courseId.match(/^[0-9a-fA-F]{24}$/)) {
+      console.error('Enrollment failed: Invalid courseId format:', courseId);
+      return res.status(400).json({ message: 'Invalid course ID format' });
     }
 
     // Find the course
     const course = await Course.findById(courseId);
     if (!course) {
+      console.error('Enrollment failed: Course not found:', courseId);
       return res.status(404).json({ message: 'Course not found' });
     }
 
+    console.log('Course found:', {
+      courseId: course._id,
+      title: course.title,
+      isPaid: course.isPaid,
+      price: course.price,
+      isActive: course.isActive
+    });
+
     // Check if course is free
     if (course.isPaid && course.price > 0) {
+      console.error('Enrollment failed: Course is paid:', {
+        courseId,
+        price: course.price,
+        isPaid: course.isPaid
+      });
       return res.status(400).json({ 
         message: 'This is a paid course. Please use the payment system to enroll.',
         requiresPayment: true,
@@ -405,11 +470,15 @@ export const enrollInFreeCourse = async (req, res) => {
     );
 
     if (isAlreadyEnrolled) {
-      return res.status(400).json({ message: 'Already enrolled in this course' });
+      console.log('User already enrolled in course:', { userId, courseId });
+      return res.status(400).json({ 
+        message: 'Already enrolled in this course',
+        isEnrolled: true
+      });
     }
 
     // Enroll student in course
-    await Course.findByIdAndUpdate(courseId, {
+    const courseUpdateResult = await Course.findByIdAndUpdate(courseId, {
       $addToSet: {
         enrolledStudents: { 
           student: userId, 
@@ -421,41 +490,70 @@ export const enrollInFreeCourse = async (req, res) => {
         totalEnrollments: 1, 
         enrollmentCount: 1 
       }
+    }, { new: true });
+
+    if (!courseUpdateResult) {
+      console.error('Failed to update course enrollment:', courseId);
+      return res.status(500).json({ message: 'Failed to enroll in course' });
+    }
+
+    console.log('Course enrollment updated successfully:', {
+      courseId,
+      userId,
+      newEnrollmentCount: courseUpdateResult.enrollmentCount
     });
 
     // Update student's enrolled courses
     try {
-      const student = await Student.findById(userId);
-      if (student) {
-        // Initialize enrolledCourses if it doesn't exist
-        if (!student.enrolledCourses) {
-          student.enrolledCourses = [];
-        }
+      let student = await Student.findById(userId);
+      if (!student) {
+        console.error('Student profile not found for userId:', userId);
+        console.error('This indicates a data consistency issue - user exists but Student record is missing');
+        console.error('User should register properly as a student or contact support');
         
-        // Check if course is already in student's enrolled courses
-        const isAlreadyInStudentCourses = student.enrolledCourses.some(
-          ec => ec.course.toString() === courseId
-        );
+        return res.status(404).json({ 
+          message: 'Student profile not found. Please register as a student first.',
+          error: 'MISSING_STUDENT_PROFILE',
+          userId: userId,
+          suggestion: 'Please register with a student account or contact support'
+        });
+      }
+
+      // Initialize enrolledCourses if it doesn't exist
+      if (!student.enrolledCourses) {
+        student.enrolledCourses = [];
+      }
+      
+      // Check if course is already in student's enrolled courses
+      const isAlreadyInStudentCourses = student.enrolledCourses.some(
+        ec => ec.course.toString() === courseId
+      );
+      
+      if (!isAlreadyInStudentCourses) {
+        student.enrolledCourses.push({
+          course: courseId,
+          enrolledAt: new Date(),
+          progress: 0,
+          completedVideos: [],
+          totalWatchTime: 0,
+          isCompleted: false
+        });
         
-        if (!isAlreadyInStudentCourses) {
-          student.enrolledCourses.push({
-            course: courseId,
-            enrolledAt: new Date(),
-            progress: 0,
-            completedVideos: [],
-            totalWatchTime: 0,
-            isCompleted: false
-          });
-          
-          // Update statistics
-          student.updateStats();
-          await student.save();
-          
-          console.log('Student enrollment updated successfully');
-        }
+        // Update statistics
+        student.updateStats();
+        const savedStudent = await student.save();
+        
+        console.log('Student enrollment updated successfully:', {
+          userId,
+          courseId,
+          totalEnrolledCourses: savedStudent.enrolledCourses.length
+        });
+      } else {
+        console.log('Course already in student enrolled courses:', { userId, courseId });
       }
     } catch (error) {
       console.error('Error updating student enrollment for free course:', error);
+      // Don't return error here as course enrollment was successful
     }
 
     res.json({
@@ -838,12 +936,30 @@ export const getCourseEnrollmentStatus = async (req, res) => {
       }
     }
 
-    const isEnrolled = isEnrolledInCourse && enrollmentDetails;
+    // User is considered enrolled if they exist in either the Course model OR Student model
+    // This handles cases where there might be data inconsistency
+    const isEnrolled = isEnrolledInCourse || !!enrollmentDetails;
+
+    console.log('Enrollment status check:', {
+      userId,
+      courseId,
+      isEnrolledInCourse,
+      hasEnrollmentDetails: !!enrollmentDetails,
+      hasStudent: !!student,
+      finalIsEnrolled: isEnrolled
+    });
 
     res.json({
       success: true,
       isEnrolled,
-      enrollmentDetails,
+      enrollmentDetails: enrollmentDetails || (isEnrolledInCourse ? {
+        enrolledAt: new Date().toISOString(), // Fallback date
+        progress: 0,
+        completedVideos: 0,
+        totalWatchTime: 0,
+        isCompleted: false,
+        lastWatchedAt: null
+      } : null),
       courseInfo: {
         _id: course._id,
         title: course.title,
@@ -1005,5 +1121,90 @@ export const getMyEnrolledCoursesDetailed = async (req, res) => {
   } catch (error) {
     console.error('getMyEnrolledCoursesDetailed error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Debug endpoint to check user and course info
+export const debugEnrollment = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user?.sub;
+    const userRole = req.user?.role;
+    
+    console.log('Debug enrollment check:', {
+      courseId,
+      userId,
+      userRole,
+      userObject: req.user
+    });
+
+    // Check if course exists
+    const course = await Course.findById(courseId);
+    
+    // Check if student exists
+    const student = await Student.findById(userId);
+    
+    // Additional checks for other user types
+    const creator = userRole === 'creator' ? await Creator.findById(userId) : null;
+    const business = userRole === 'business' ? await Business.findById(userId) : null;
+    const admin = userRole === 'admin' ? await Admin.findById(userId) : null;
+
+    let enrollmentInfo = {};
+    if (course && student) {
+      const isEnrolledInCourse = course.enrolledStudents.some(
+        enrollment => enrollment.student.toString() === userId
+      );
+
+      const isEnrolledInStudent = student.enrolledCourses.some(
+        ec => ec.course.toString() === courseId
+      );
+
+      enrollmentInfo = {
+        isEnrolledInCourse,
+        isEnrolledInStudent,
+        enrollmentMatch: isEnrolledInCourse === isEnrolledInStudent,
+        courseEnrollmentCount: course.enrolledStudents.length,
+        studentEnrollmentCount: student.enrolledCourses.length
+      };
+    }
+
+    res.json({
+      success: true,
+      debug: {
+        // User info
+        userId,
+        userRole,
+        tokenValid: !!userId,
+        
+        // Profile existence
+        studentProfileExists: !!student,
+        creatorProfileExists: !!creator,
+        businessProfileExists: !!business,
+        adminProfileExists: !!admin,
+        
+        // Course info
+        courseExists: !!course,
+        courseTitle: course?.title,
+        courseIsPaid: course?.isPaid,
+        coursePrice: course?.price,
+        
+        // Enrollment info
+        ...enrollmentInfo,
+        
+        // Recommendations
+        canEnroll: !!course && !!student && userRole === 'student',
+        issue: !student && userRole === 'student' ? 'MISSING_STUDENT_PROFILE' : 
+               !course ? 'COURSE_NOT_FOUND' : 
+               userRole !== 'student' ? 'WRONG_USER_ROLE' : null
+      }
+    });
+
+  } catch (error) {
+    console.error('Debug enrollment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug error',
+      error: error.message
+    });
   }
 };

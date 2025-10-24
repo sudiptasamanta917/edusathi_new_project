@@ -108,7 +108,10 @@ export default function CourseDetail() {
 
   // Check enrollment status for logged in students
   const checkEnrollmentStatus = async () => {
-    if (!course || !id) return;
+    if (!course || !id) {
+      console.log('Cannot check enrollment status: missing course or id');
+      return;
+    }
 
     const token = 
       sessionStorage.getItem('access_token') || 
@@ -120,10 +123,13 @@ export default function CourseDetail() {
       sessionStorage.getItem('userRole') || 
       localStorage.getItem('userRole');
 
-    if (!token || userRole !== 'student') return;
+    if (!token || userRole !== 'student') {
+      return;
+    }
 
     try {
       const response = await StudentAPI.getCourseEnrollmentStatus(id);
+      
       if (response.success) {
         setEnrollmentStatus(response);
       }
@@ -138,6 +144,7 @@ export default function CourseDetail() {
       checkEnrollmentStatus();
     }
   }, [course]);
+
 
   // Loading state
   if (loading) {
@@ -436,12 +443,87 @@ export default function CourseDetail() {
         
         alert('Successfully enrolled in the course! You can now access all videos.');
       } else {
-        alert('Enrollment failed: ' + (response.message || 'Unknown error'));
+        // Check if user is already enrolled
+        if (response.message && response.message.includes('Already enrolled')) {
+          console.log('User is already enrolled, updating UI...');
+          
+          // Update enrollment status to show enrolled state
+          setEnrollmentStatus({
+            success: true,
+            isEnrolled: true,
+            enrollmentDetails: {
+              enrolledAt: new Date().toISOString(), // We don't have the actual date, use current
+              progress: 0,
+              completedVideos: 0,
+              totalWatchTime: 0,
+              isCompleted: false
+            },
+            courseInfo: {
+              _id: course._id,
+              title: course.title,
+              isPaid: course.isPaid,
+              price: course.price
+            }
+          });
+          
+          // Also refresh from server to get accurate data
+          await checkEnrollmentStatus();
+          
+          alert('You are already enrolled in this course! You can start learning now.');
+        } else {
+          alert('Enrollment failed: ' + (response.message || 'Unknown error'));
+        }
       }
       
     } catch (error: any) {
       console.error('Error enrolling in free course:', error);
-      alert(error.message || 'Failed to enroll in course. Please try again.');
+      
+      // Parse error message - it might be a JSON string
+      let errorMessage = error.message || '';
+      let parsedError = null;
+      
+      try {
+        // Try to parse JSON error message
+        parsedError = JSON.parse(errorMessage);
+        errorMessage = parsedError.message || errorMessage;
+      } catch (e) {
+        // Not JSON, use as is
+      }
+      
+      console.log('Parsed error:', { errorMessage, parsedError });
+      
+      // Check if the error indicates already enrolled
+      if (errorMessage.includes('Already enrolled') || parsedError?.isEnrolled) {
+        console.log('Caught already enrolled error, updating UI...');
+        
+        // Update enrollment status to show enrolled state
+        setEnrollmentStatus({
+          success: true,
+          isEnrolled: true,
+          enrollmentDetails: {
+            enrolledAt: new Date().toISOString(),
+            progress: 0,
+            completedVideos: 0,
+            totalWatchTime: 0,
+            isCompleted: false
+          },
+          courseInfo: {
+            _id: course._id,
+            title: course.title,
+            isPaid: course.isPaid,
+            price: course.price
+          }
+        });
+        
+        // Refresh from server to get accurate enrollment data
+        setTimeout(async () => {
+          await checkEnrollmentStatus();
+        }, 500); // Small delay to ensure server state is updated
+        
+        alert('You are already enrolled in this course! You can start learning now.');
+      } else {
+        alert(errorMessage || 'Failed to enroll in course. Please try again.');
+      }
     } finally {
       setEnrollmentLoading(false);
     }
@@ -839,6 +921,7 @@ export default function CourseDetail() {
                 )}
               </div>
 
+
               {enrollmentStatus?.isEnrolled ? (
                 <div className="space-y-4">
                   {/* Enrollment Status */}
@@ -887,6 +970,7 @@ export default function CourseDetail() {
                         // Navigate to first video of the course
                         if (course?.playlists?.[0]?.videos?.[0]) {
                           const firstVideo = course.playlists[0].videos[0];
+                          console.log('Navigating to first video:', firstVideo);
                           navigate(`/watch/${firstVideo._id}`, {
                             state: {
                               video: firstVideo,
@@ -896,7 +980,9 @@ export default function CourseDetail() {
                             }
                           });
                         } else {
-                          navigate(`/student`, { state: { activeTab: 'courses' } });
+                          // No videos available yet
+                          alert('No videos are available in this course yet. Please check back later or contact the instructor.');
+                          console.log('No videos found in course playlists:', course?.playlists);
                         }
                       }}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"

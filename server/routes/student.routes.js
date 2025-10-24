@@ -13,7 +13,8 @@ import {
   enrollInPaidCourse,
   getCourseEnrollmentStatus,
   getMyEnrolledCoursesDetailed,
-  getStudentAnalytics
+  getStudentAnalytics,
+  debugEnrollment
 } from '../controllers/student.controller.js';
 
 const router = express.Router();
@@ -38,5 +39,8 @@ router.post('/courses/:courseId/videos/:videoId/progress', requireAuth, requireR
 
 // Analytics
 router.get('/analytics', requireAuth, requireRole(['student']), getStudentAnalytics);
+
+// Debug route for enrollment testing
+router.get('/debug/courses/:courseId', requireAuth, requireRole(['student']), debugEnrollment);
 
 export default router;

@@ -558,12 +558,12 @@ const ContentManagement: React.FC = () => {
                                                         onChange={(e) => {
                                                             if (e.target.value) {
                                                                 console.log("Video object:", video);
-                                                                console.log("Video ID:", video._id);
-                                                                if (!video._id) {
+                                                                console.log("Video ID:", video.id);
+                                                                if (!video.id) {
                                                                     alert("Video ID is missing!");
                                                                     return;
                                                                 }
-                                                                handleAddVideoToPlaylist(video._id, e.target.value);
+                                                                handleAddVideoToPlaylist(video.id, e.target.value);
                                                                 e.target.value = ""; 
                                                             }
                                                         }}
@@ -574,7 +574,7 @@ const ContentManagement: React.FC = () => {
                                                             ➕ Add to Playlist
                                                         </option>
                                                         {playlists.map((playlist, index) => (
-                                                            <option key={playlist._id} value={playlist._id} className="bg-gray-800">
+                                                            <option key={playlist.id} value={playlist._id} className="bg-gray-800">
                                                                  {playlist.title} ({playlist.videos?.length || 0} videos)
                                                             </option>
                                                         ))}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import freeCourseImage5 from "../../../src/assets/courseImages/freeCourseImages/maxresdefault (5).jpg";
+import freeCourseImage5 from "../../../src/assets/courseImages/AI1.webp";
 
 type Video = {
     id: string;

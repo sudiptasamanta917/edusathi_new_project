@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
 import { Star, Upload } from "lucide-react";
-import Sidebar from "./SideBar";
+import Sidebar from "./Sidebar";
 import VideoGrid from "@/components/home/sections/VideoGrid";
 
 import {

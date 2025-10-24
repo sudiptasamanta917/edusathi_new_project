@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Clock, Star, Play, Lock, BookOpen } from "lucide-react";
+import VideoPlayer from "@/components/VideoPlayer";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { PublicAPI, StudentAPI } from "@/Api/api";
@@ -40,6 +41,8 @@ type Course = {
       title?: string;
       description?: string;
       duration?: string;
+      hlsUrl?: string;
+      hlsProcessing?: boolean;
       thumbnail?: string;
       isPremium?: boolean;
       isLocked?: boolean;
@@ -445,29 +448,34 @@ export default function CourseDetail() {
   };
 
   // Handle video click
-  const handleVideoClick = (videoId: string, isLocked: boolean) => {
+  const handleVideoClick = (videoId: string, isLocked: boolean, isProcessing = false) => {
     if (!course) return;
-    
-    console.log('Video clicked:', { videoId, isLocked, courseId: course._id });
-    
+
+    if (isProcessing) {
+      alert('This video is still processing. Please check back in a few minutes.');
+      return;
+    }
+
+    console.log('Video clicked:', { videoId, isLocked, isProcessing, courseId: course._id });
+
     // Check if user is logged in
-    const token = 
-      sessionStorage.getItem('access_token') || 
-      localStorage.getItem('access_token') || 
-      sessionStorage.getItem('accessToken') || 
-      localStorage.getItem('accessToken') || 
+    const token =
+      sessionStorage.getItem('access_token') ||
+      localStorage.getItem('access_token') ||
+      sessionStorage.getItem('accessToken') ||
+      localStorage.getItem('accessToken') ||
       localStorage.getItem('token');
-    
-    const userRole = 
-      sessionStorage.getItem('userRole') || 
+
+    const userRole =
+      sessionStorage.getItem('userRole') ||
       localStorage.getItem('userRole');
-    
+
     console.log('Auth check:', { token: !!token, userRole });
-    
+
     if (!token) {
       // Redirect to login if not logged in
-      navigate('/auth', { 
-        state: { 
+      navigate('/auth', {
+        state: {
           redirectTo: `/course/${course._id}`,
           message: 'Please login to watch videos'
         }
@@ -477,8 +485,8 @@ export default function CourseDetail() {
 
     if (userRole !== 'student') {
       alert('Only students can watch videos. Please login with a student account.');
-      navigate('/auth', { 
-        state: { 
+      navigate('/auth', {
+        state: {
           redirectTo: `/course/${course._id}`,
           message: 'Please login with a student account to watch videos'
         }
@@ -489,7 +497,7 @@ export default function CourseDetail() {
     if (course.isPaid) {
       // Check if user is enrolled in paid course
       const isEnrolled = enrollmentStatus?.isEnrolled || false;
-      
+
       if (!isEnrolled) {
         alert('This video is locked. Please enroll in the course to access all videos. You can watch the preview video above.');
         return;
@@ -497,7 +505,7 @@ export default function CourseDetail() {
     }
 
     console.log('Navigating to watch page:', `/watch/${videoId}`);
-    
+
     // Navigate to watch page with course and video info
     navigate(`/watch/${videoId}`, {
       state: {
@@ -643,7 +651,7 @@ export default function CourseDetail() {
                             className={`p-4 transition-colors ${
                               isVideoLocked ? 'hover:bg-red-50 dark:hover:bg-red-900/10 cursor-not-allowed opacity-75' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer'
                             }`}
-                            onClick={() => handleVideoClick(video._id || '', isVideoLocked)}
+                            onClick={() => handleVideoClick(video._id || '', isVideoLocked, !!video.hlsProcessing)}
                           >
                         
                           <div className="flex items-center justify-between">
@@ -673,6 +681,12 @@ export default function CourseDetail() {
                                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                   {video.title || `Video ${vIndex + 1}`}
                                 </p>
+                                {/* HLS processing badge */}
+                                {video.hlsProcessing && (
+                                  <div className="inline-block ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded">
+                                    Processing
+                                  </div>
+                                )}
                                 {video.description && (
                                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
                                     {video.description}
@@ -752,7 +766,7 @@ export default function CourseDetail() {
           {/* Pricing Box */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             {/* Preview Video for Paid Courses */}
-            {(() => {
+              {(() => {
               console.log('Preview video check:', {
                 safeIsPaid,
                 hasPreviewVideo: !!course?.previewVideo,
@@ -761,27 +775,34 @@ export default function CourseDetail() {
               
               // For testing - use a sample video if no preview video exists
               const testVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-              const videoUrl = course?.previewVideo || (safeIsPaid ? testVideoUrl : null);
-              
+              // Prefer HLS preview if provided (either .m3u8 or hlsUrl field)
+              const rawPreview = course?.previewVideo || null;
+              const previewIsHls = typeof rawPreview === 'string' && (/\.m3u8(\?|$)/i.test(rawPreview) || rawPreview.includes('/hls/'));
+              const previewUrl = rawPreview || (safeIsPaid ? testVideoUrl : null);
+
               return safeIsPaid ? (
                 <div className="relative">
-                  {videoUrl ? (
-                    <video
-                      className="w-full h-48 object-cover"
-                      controls
-                      autoPlay
-                      muted
-                      poster={getCourseThumbnail(safeThumbnail)}
-                      onError={(e) => {
-                        console.error('Video error:', e);
-                        console.log('Failed video URL:', videoUrl);
-                      }}
-                      onLoadStart={() => console.log('Video loading started')}
-                      onCanPlay={() => console.log('Video can play')}
-                    >
-                      <source src={videoUrl} type="video/mp4" />
-                      Your browser does not support the video tag.
-                    </video>
+                  {previewUrl ? (
+                    previewIsHls ? (
+                      <VideoPlayer src={previewUrl} poster={getCourseThumbnail(safeThumbnail)} autoPlay={false} />
+                    ) : (
+                      <video
+                        className="w-full h-48 object-cover"
+                        controls
+                        autoPlay
+                        muted
+                        poster={getCourseThumbnail(safeThumbnail)}
+                        onError={(e) => {
+                          console.error('Video error:', e);
+                          console.log('Failed video URL:', previewUrl);
+                        }}
+                        onLoadStart={() => console.log('Video loading started')}
+                        onCanPlay={() => console.log('Video can play')}
+                      >
+                        <source src={previewUrl} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    )
                   ) : (
                     <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                       <div className="text-center">
@@ -791,7 +812,7 @@ export default function CourseDetail() {
                     </div>
                   )}
                   <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
-                    {videoUrl ? 'Preview' : 'No Preview'}
+                    {previewUrl ? 'Preview' : 'No Preview'}
                   </div>
                 </div>
               ) : (

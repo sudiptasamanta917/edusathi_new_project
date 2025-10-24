@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Sidebar from "./SideBar";
+import Sidebar from "./Sidebar";
 import {
     Card,
     CardHeader,

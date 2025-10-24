@@ -3,6 +3,7 @@ export type Video = {
   id: string;
   title: string;
   author?: string;
+  duration?: number;
   rating?: number;
   reviews?: string;
   price?: string;

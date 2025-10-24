@@ -72,7 +72,7 @@ class S3StorageWithProgress {
                 }
             },
             queueSize: 4, // concurrent part uploads
-            partSize: 5 * 1024 * 1024, // 5MB parts
+            partSize: 500 * 1024 * 1024, // 500MB parts
             leavePartsOnError: false
         });
 

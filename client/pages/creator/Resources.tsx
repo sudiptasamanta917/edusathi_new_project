@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Upload, FileText, Trash2, Edit } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import Sidebar from "./SideBar";
+import Sidebar from "./Sidebar";
 
 interface Resource {
     id: number;

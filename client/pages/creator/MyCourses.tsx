@@ -9,7 +9,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { CourseAPI } from "@/Api/api";
-import Sidebar from "./SideBar";
+import Sidebar from "./Sidebar";
 
 interface Course {
     _id: string;

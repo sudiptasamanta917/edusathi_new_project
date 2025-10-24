@@ -9,12 +9,13 @@ import {
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { ContentAPI } from "../../Api/api";
-import Sidebar from "./SideBar";
+import Sidebar from "./Sidebar";
 import CreateCourse from "./CreateCourse";
 import { CourseAPI } from "@/Api/api";
 
 interface Video {
     id: number;
+    _id?: string;
     title: string;
     date: string;
     views: number;

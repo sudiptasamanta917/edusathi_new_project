@@ -88,6 +88,24 @@ const videoSchema = new mongoose.Schema({
         completed: Boolean,
         watchedAt: Date
     }]
+    ,
+    // HLS processing fields
+    hlsUrl: {
+        type: String,
+        default: null
+    },
+    hlsProcessing: {
+        type: Boolean,
+        default: false
+    },
+    hlsReadyAt: {
+        type: Date,
+        default: null
+    },
+    hlsError: {
+        type: String,
+        default: null
+    }
 }, {
     timestamps: true
 });

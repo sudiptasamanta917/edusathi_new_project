@@ -15,7 +15,7 @@ type CartItem = {
     addedAt: string;
 };
 
-const navLinks = [
+const navLinks: any[] = [
     {
         label: "Product",
         to: "/product",
@@ -305,11 +305,8 @@ export default function Navbar() {
                                             {/* Left column */}
                                             <div className="flex-[0_0_35%] flex flex-col gap-4">
                                                 {link.dropdown
-                                                    .filter(
-                                                        (_, index) =>
-                                                            index === 0
-                                                    )
-                                                    .map((section) => (
+                                                    .filter((_: any, index: number) => index === 0)
+                                                    .map((section: any) => (
                                                         <div
                                                             key={
                                                                 section.section
@@ -321,8 +318,7 @@ export default function Navbar() {
                                                                     section.section
                                                                 }
                                                             </div>
-                                                            {section.items.map(
-                                                                (item) => (
+                                                            {section.items.map((item: any) => (
                                                                     <Link
                                                                         key={
                                                                             item.label
@@ -355,11 +351,8 @@ export default function Navbar() {
                                             {/* Right column */}
                                             <div className="flex-[0_0_65%] flex flex-col gap-4">
                                                 {link.dropdown
-                                                    .filter(
-                                                        (_, index) =>
-                                                            index === 1
-                                                    )
-                                                    .map((section) => (
+                                                    .filter((_: any, index: number) => index === 1)
+                                                    .map((section: any) => (
                                                         <div
                                                             key={
                                                                 section.section
@@ -372,8 +365,7 @@ export default function Navbar() {
                                                                 }
                                                             </div>
                                                             /
-                                                            {section.items.map(
-                                                                (item) => (
+                                                            {section.items.map((item: any) => (
                                                                     <Link
                                                                         key={
                                                                             item.label

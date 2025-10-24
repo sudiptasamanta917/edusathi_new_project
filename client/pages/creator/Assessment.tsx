@@ -9,7 +9,7 @@ import { Button } from "../../components/ui/button";
 // } from "@/components/ui/dropdown-menu";
 import { FaEdit, FaArrowsAlt, FaTrash } from "react-icons/fa";
 import { IoMdArrowDropdown } from "react-icons/io";
-import Sidebar from "./SideBar";
+import Sidebar from "./Sidebar";
 import QuestionModal from "./QuestionModal";
 
 type Tab = "create" | "configure" | "publish" | "analyze";

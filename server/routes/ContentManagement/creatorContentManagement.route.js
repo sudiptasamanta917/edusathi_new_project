@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from 'url';
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { spawn } from 'child_process';
 import { Upload } from "@aws-sdk/lib-storage";
 import upload from "../../middleware/fileUpload.middleware.js"
 import { authenticateToken, requireRole } from "../../middleware/auth.js";
@@ -644,18 +645,18 @@ router.post("/videos/upload", authenticateToken, requireRole(['creator']),
       });
     }
 
-    // --- Generate HLS streaming URL ---
-    const hlsUrl = convertToHlsUrl(videoFile.location, process.env.S3_STORAGE_NAME);
-    console.log(hlsUrl);
-    
-    // --- Handle thumbnail URL ---
-    const thumbnailUrl = thumbnailFile ? thumbnailFile.location : null;
+  // --- Use original uploaded MP4 URL for now; HLS will be generated in background ---
+  const originalVideoUrl = videoFile.location || null;
+
+  // --- Handle thumbnail URL ---
+  const thumbnailUrl = thumbnailFile ? thumbnailFile.location : null;
 
     // --- Create video document ---
     const video = new Video({
       title,
       description,
-      videoUrl: hlsUrl,
+      // store original MP4 URL; transcode job will populate `hlsUrl` and set hlsProcessing -> false
+      videoUrl: originalVideoUrl,
       thumbnail: thumbnailUrl,
       duration: Number(duration) || 0,
       quality: quality || "720p",
@@ -666,13 +667,43 @@ router.post("/videos/upload", authenticateToken, requireRole(['creator']),
       playlistOrder: Number(playlistOrder) || 0,
       views: Number(views) || 0,
       likes: Number(likes) || 0,
+      // mark HLS processing will start in background
+      hlsProcessing: true,
     });
 
     // --- Save document in DB ---
     await video.save();
 
-    // --- Send success response ---
-    res.status(200).json({
+    // --- Spawn background transcode job (non-blocking) ---
+    try {
+      const bucket = process.env.S3_BUCKET_NAME || process.env.AWS_S3_BUCKET || process.env.S3_BUCKET || process.env.S3_STORAGE_NAME;
+      // videoFile.key should be set by the upload middleware
+      const s3Key = videoFile.key || (videoFile.location ? (() => {
+        try {
+          const url = new URL(videoFile.location);
+          // try to extract path after bucket
+          return url.pathname.replace(/^\//, '');
+        } catch (e) {
+          return null;
+        }
+      })() : null);
+
+      if (bucket && s3Key) {
+        const scriptPath = path.join(process.cwd(), 'server', 'scripts', 'transcode-to-hls.js');
+        const nodeExe = process.execPath || 'node';
+        const args = [scriptPath, '--bucket', bucket, '--key', s3Key, '--videoId', video._id.toString()];
+        const child = spawn(nodeExe, args, { detached: true, stdio: 'ignore' });
+        child.unref();
+        console.log('Spawned transcode job for', s3Key);
+      } else {
+        console.warn('Skipping transcode spawn — missing bucket or key', { bucket, s3Key });
+      }
+    } catch (e) {
+      console.error('Failed to spawn transcode job', e);
+    }
+
+    // --- Send created response ---
+    res.status(201).json({
       status: true,
       message: "Video uploaded and saved successfully!",
       data: video,

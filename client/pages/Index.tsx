@@ -31,9 +31,9 @@ export default function Index() {
                   <EnhancedHeroSection />
                   <ValueProposition />
                   <AllCourses />
-                  <TrendingVideos />
+                  {/* <TrendingVideos /> */}
                   <CourseVideos />
-                  <AllVideos />
+                  {/* <AllVideos /> */}
                   <Features />
                   <Stats />
                   <Testimonials />

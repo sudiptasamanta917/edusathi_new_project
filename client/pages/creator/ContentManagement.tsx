@@ -14,8 +14,8 @@ import CreateCourse from "./CreateCourse";
 import { CourseAPI } from "@/Api/api";
 
 interface Video {
-    id: number;
-    _id?: string;
+    id?: number;
+    _id: string;
     title: string;
     date: string;
     views: number;
@@ -86,9 +86,8 @@ const ContentManagement: React.FC = () => {
             try {
                 const videosData = await ContentAPI.getVideos();
                 if (videosData.status && videosData.data?.videos) {
-                    const formattedVideos = videosData.data.videos.map((v: any, index: number) => ({
-                        id: index + 1,
-                        _id: v._id, // Add video _id for playlist operations
+                    const formattedVideos = videosData.data.videos.map((v: any) => ({
+                        _id: v._id,
                         title: v.title,
                         date: new Date(v.createdAt).toLocaleDateString(),
                         views: v.views || 0,
@@ -315,7 +314,7 @@ const ContentManagement: React.FC = () => {
                 alert(" Video uploaded successfully!");
                 setVideos([
                     {
-                        id: videos.length + 1,
+                        _id: result.data?.video?._id || String(Date.now()), // Fallback to timestamp if _id not available
                         title: selectedFile.name,
                         date: new Date().toLocaleDateString(),
                         views: 0,
@@ -540,7 +539,7 @@ const ContentManagement: React.FC = () => {
                                 <tbody>
                                     {videos.map((video) => (
                                         <tr
-                                            key={video.id}
+                                            key={video._id}
                                             className="border-b border-gray-700 hover:bg-[#333]"
                                         >
                                             <td className="p-2">
@@ -558,12 +557,12 @@ const ContentManagement: React.FC = () => {
                                                         onChange={(e) => {
                                                             if (e.target.value) {
                                                                 console.log("Video object:", video);
-                                                                console.log("Video ID:", video.id);
-                                                                if (!video.id) {
+                                                                console.log("Video ID:", video._id);
+                                                                if (!video._id) {
                                                                     alert("Video ID is missing!");
                                                                     return;
                                                                 }
-                                                                handleAddVideoToPlaylist(video.id, e.target.value);
+                                                                handleAddVideoToPlaylist(video._id, e.target.value);
                                                                 e.target.value = ""; 
                                                             }
                                                         }}
@@ -574,7 +573,7 @@ const ContentManagement: React.FC = () => {
                                                             ➕ Add to Playlist
                                                         </option>
                                                         {playlists.map((playlist, index) => (
-                                                            <option key={playlist.id} value={playlist._id} className="bg-gray-800">
+                                                            <option key={playlist._id} value={playlist._id} className="bg-gray-800">
                                                                  {playlist.title} ({playlist.videos?.length || 0} videos)
                                                             </option>
                                                         ))}

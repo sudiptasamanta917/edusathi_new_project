@@ -128,34 +128,47 @@ export default function WatchPage() {
                 
                 // Determine the best video URL to use
                 const getVideoUrl = () => {
+                    console.log('Video URL selection:', {
+                        hlsUrl: response.video.hlsUrl,
+                        isHlsReady: response.video.isHlsReady,
+                        videoUrl: response.video.videoUrl,
+                        previewUrl: response.video.previewUrl,
+                        hlsProcessing: response.video.hlsProcessing
+                    });
+                    
                     // Prefer HLS URL if available and ready
                     if (response.video.hlsUrl && response.video.isHlsReady) {
+                        console.log('Using HLS URL:', response.video.hlsUrl);
                         return response.video.hlsUrl;
                     }
                     
                     // Use regular video URL
                     if (response.video.videoUrl) {
+                        console.log('Using regular video URL:', response.video.videoUrl);
                         return response.video.videoUrl;
                     }
                     
                     // Use preview URL as fallback
                     if (response.video.previewUrl) {
+                        console.log('Using preview URL:', response.video.previewUrl);
                         return response.video.previewUrl;
                     }
                     
+                    console.log('No video URL available');
                     return null;
                 };
 
                 const videoUrl = getVideoUrl();
-                
-                // Check if video is still processing
-                if (response.video.hlsProcessing) {
-                    throw new Error('This video is still being processed. Please check back in a few minutes.');
-                }
+                console.log('Video URL for playback:', videoUrl);
                 
                 // Check if we have any playable URL
                 if (!videoUrl) {
-                    throw new Error('No playable video URL available. The video might not be uploaded yet or is still processing.');
+                    // Only show processing error if HLS is processing AND no regular video URL
+                    if (response.video.hlsProcessing && !response.video.videoUrl) {
+                        throw new Error('This video is still being processed. Please check back in a few minutes.');
+                    } else {
+                        throw new Error('No playable video URL available. The video might not be uploaded yet or is still processing.');
+                    }
                 }
 
                 // Convert to Video format for compatibility

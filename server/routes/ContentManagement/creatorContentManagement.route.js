@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import mongoose from "mongoose";
 import { fileURLToPath } from 'url';
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
@@ -1123,6 +1124,14 @@ router.post("/courses/:courseId/playlists/:playlistId/videos", authenticateToken
       return res.status(400).json({
         status: false,
         error: "Video ID is required"
+      });
+    }
+
+    // Validate videoId format (must be valid MongoDB ObjectId)
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+      return res.status(400).json({
+        status: false,
+        error: `Invalid video ID format. Received: ${videoId} (type: ${typeof videoId})`
       });
     }
 

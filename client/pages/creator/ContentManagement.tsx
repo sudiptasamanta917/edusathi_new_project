@@ -14,7 +14,7 @@ import CreateCourse from "./CreateCourse";
 import { CourseAPI } from "@/Api/api";
 
 interface Video {
-    id: number;
+    _id: string;
     title: string;
     date: string;
     views: number;
@@ -85,13 +85,12 @@ const ContentManagement: React.FC = () => {
             try {
                 const videosData = await ContentAPI.getVideos();
                 if (videosData.status && videosData.data?.videos) {
-                    const formattedVideos = videosData.data.videos.map((v: any, index: number) => ({
-                        id: index + 1,
-                        _id: v._id, // Add video _id for playlist operations
-                        title: v.title,
+                    const formattedVideos = videosData.data.videos.map((v: any) => ({
+                        _id: v._id,
+                        title: v.title || "Untitled Video",
                         date: new Date(v.createdAt).toLocaleDateString(),
                         views: v.views || 0,
-                        comments: 0, // Not available in API yet
+                        comments: 0,
                         likes: v.likes || 0,
                     }));
                     setVideos(formattedVideos);
@@ -109,20 +108,28 @@ const ContentManagement: React.FC = () => {
 
     const fetchCourses = async () => {
         try {
-            console.log("Fetching courses...");
+            console.log("=== Fetching courses ===");
+            
+            // Check if token exists
+            const token = sessionStorage.getItem("access_token") || localStorage.getItem("access_token");
+            console.log("Token exists:", !!token);
+            console.log("Token (first 20 chars):", token?.substring(0, 20));
+            
             const res = await CourseAPI.getCourses();
             console.log("Course API response:", res);
+            console.log("Response status:", res.status);
+            console.log("Response data:", res.data);
+            
             if (res.status && res.data?.courses) {
-                console.log("Setting courses:", res.data.courses);
+                console.log("✅ Setting courses:", res.data.courses);
                 setCourses(res.data.courses);
             } else {
-                console.error(
-                    "Failed to fetch courses:",
-                    res.error || res.message
-                );
+                console.error("❌ Failed to fetch courses:", res.error || res.message);
+                alert(`Failed to load your courses: ${res.error || res.message || 'Unknown error'}`);
             }
-        } catch (err) {
-            console.error("Error fetching courses:", err);
+        } catch (err: any) {
+            console.error("❌ Error fetching courses:", err);
+            alert(`Error loading courses: ${err.message || JSON.stringify(err)}`);
         }
     };
 
@@ -314,7 +321,7 @@ const ContentManagement: React.FC = () => {
                 alert(" Video uploaded successfully!");
                 setVideos([
                     {
-                        id: videos.length + 1,
+                        _id: result.data._id,
                         title: selectedFile.name,
                         date: new Date().toLocaleDateString(),
                         views: 0,
@@ -539,7 +546,7 @@ const ContentManagement: React.FC = () => {
                                 <tbody>
                                     {videos.map((video) => (
                                         <tr
-                                            key={video.id}
+                                            key={video._id}
                                             className="border-b border-gray-700 hover:bg-[#333]"
                                         >
                                             <td className="p-2">
@@ -557,12 +564,12 @@ const ContentManagement: React.FC = () => {
                                                         onChange={(e) => {
                                                             if (e.target.value) {
                                                                 console.log("Video object:", video);
-                                                                console.log("Video ID:", video.id);
-                                                                if (!video.id) {
+                                                                console.log("Video ID:", video._id);
+                                                                if (!video._id) {
                                                                     alert("Video ID is missing!");
                                                                     return;
                                                                 }
-                                                                handleAddVideoToPlaylist(video.id, e.target.value);
+                                                                handleAddVideoToPlaylist(video._id, e.target.value);
                                                                 e.target.value = ""; 
                                                             }
                                                         }}
@@ -573,7 +580,7 @@ const ContentManagement: React.FC = () => {
                                                             ➕ Add to Playlist
                                                         </option>
                                                         {playlists.map((playlist, index) => (
-                                                            <option key={playlist.id} value={playlist._id} className="bg-gray-800">
+                                                            <option key={playlist._id} value={playlist._id} className="bg-gray-800">
                                                                  {playlist.title} ({playlist.videos?.length || 0} videos)
                                                             </option>
                                                         ))}

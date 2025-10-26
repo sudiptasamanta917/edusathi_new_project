@@ -186,6 +186,11 @@ export const googleAuth = async (req, res) => {
     }
     const access_token = signAccessToken({ sub: account._id.toString(), role: selectedRole });
     const refresh_token = signRefreshToken({ sub: account._id.toString(), role: selectedRole });
+    
+    // Set cookies for browser-based flows
+    res.cookie('token', access_token, cookieOptions);
+    res.cookie('refreshToken', refresh_token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    
     res.json({ user: sanitizeRoleUser(account, selectedRole), access_token, refresh_token });
   } catch (err) {
     console.error('google auth error', err);

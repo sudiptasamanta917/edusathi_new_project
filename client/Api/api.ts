@@ -261,6 +261,8 @@ export const AdminAPI = {
   roleStats: () => apiGet<any>("/api/admin/role-stats"),
   recentPurchases: (limit: number = 10) => apiGet<any>(`/api/admin/recent-purchases?limit=${encodeURIComponent(limit)}`),
   recentTemplateSelections: (limit: number = 10) => apiGet<any>(`/api/admin/recent-template-selections?limit=${encodeURIComponent(limit)}`),
+  // Generic user listing by role (expects backend endpoint to return an array or { users: [] })
+  listUsers: (role: string) => apiGet<any>(`/api/admin/users?role=${encodeURIComponent(role)}`),
 };
 
 // Content/Video API

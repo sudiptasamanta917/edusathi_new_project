@@ -40,11 +40,17 @@ import Profile from "./pages/Profile";
 import PriceManagement from "./pages/business/PriceManagement";
 import DashboardLogin from "./pages/EdusathiDashboard/DashboardLogin";
 import Invest from "./pages/Investment/invest";
-import WatchPage from "./pages/WatchPage";
-import VideoDetails from "./pages/VideoDetails";
+import UserList from "./pages/EdusathiDashboard/UserList";
+import PrivacyPolicy from "./pages/footerpages/PrivacyPolicy";
+import TermsandConditions from "./pages/footerpages/TermsandConditions";
+import PricingPolicy from "./pages/footerpages/PricingPolicy";
+import ShippingPolicy from "./pages/footerpages/ShippingPolicy";
+import RefundPolicy from "./pages/footerpages/RefundPolicy";
 import CourseDetail from "./pages/CourseDetail";
 import CourseWatch from "./pages/CourseWatch";
 import Checkout from "./pages/payment/Checkout";
+import VideoDetails from "./pages/VideoDetails";
+import WatchPage from "./pages/WatchPage";
 
 const queryClient = new QueryClient();
 

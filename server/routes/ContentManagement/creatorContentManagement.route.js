@@ -114,7 +114,7 @@ router.get("/public/courses/:courseId", async (req, res) => {
       .populate('creator', 'name email profilePicture bio totalStudents totalCourses rating')
       .populate({
         path: 'playlists.videos',
-        select: 'title description duration thumbnail isPremium'
+        select: 'title description duration thumbnail isPremium videoUrl'
       });
 
     if (!course) {

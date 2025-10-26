@@ -43,14 +43,21 @@ const Checkout: React.FC = () => {
 
         if (Array.isArray(stateCourses) && stateCourses.length) {
             const items: CartItem[] = stateCourses.map((c, idx) => {
-                const creator: Creator = c.creator || {};
+                // Handle both object and string creator
+                let creatorName = "Unknown Creator";
+                if (typeof c.creator === 'string') {
+                    creatorName = c.creator;
+                } else if (c.creator && typeof c.creator === 'object' && c.creator.name) {
+                    creatorName = c.creator.name;
+                }
+                
                 return {
                     id: idx + 1,
                     name: c.title,
-                    variant: creator?.name || "Unknown Creator",
+                    variant: creatorName,
                     price: Number(c.price) || 0,
                     quantity: 1,
-                    image: c.thumbnail || "/class.avif",
+                    image: c.thumbnail || "/class5.avif",
                     courseId: c._id || c.courseId,
                 };
             });
@@ -60,14 +67,21 @@ const Checkout: React.FC = () => {
 
         const stateCourse = (location.state as any)?.course;
         if (stateCourse) {
-            const creator: Creator = stateCourse.creator || {};
+            // Handle both object and string creator
+            let creatorName = "Unknown Creator";
+            if (typeof stateCourse.creator === 'string') {
+                creatorName = stateCourse.creator;
+            } else if (stateCourse.creator && typeof stateCourse.creator === 'object' && stateCourse.creator.name) {
+                creatorName = stateCourse.creator.name;
+            }
+            
             const item: CartItem = {
                 id: 1,
                 name: stateCourse.title,
-                variant: creator?.name || "Unknown Creator",
+                variant: creatorName,
                 price: Number(stateCourse.price) || 0,
                 quantity: 1,
-                image: stateCourse.thumbnail || "/class.avif",
+                image: stateCourse.thumbnail || "/class5.avif",
                 courseId: stateCourse._id,
             };
             setCart([item]);
@@ -81,14 +95,21 @@ const Checkout: React.FC = () => {
                 const parsed = JSON.parse(saved);
                 const items: CartItem[] = (parsed || []).map(
                     (c: any, idx: number) => {
-                        const creator: Creator = c.creator || {};
+                        // Handle both object and string creator
+                        let creatorName = "Unknown Creator";
+                        if (typeof c.creator === 'string') {
+                            creatorName = c.creator;
+                        } else if (c.creator && typeof c.creator === 'object' && c.creator.name) {
+                            creatorName = c.creator.name;
+                        }
+                        
                         return {
                             id: idx + 1,
                             name: c.title,
-                            variant: creator?.name || "Unknown Creator",
+                            variant: creatorName,
                             price: Number(c.price) || 0,
                             quantity: 1,
-                            image: c.thumbnail || "/class.avif",
+                            image: c.thumbnail || "/class5.avif",
                             courseId: c.courseId,
                         };
                     }
@@ -183,10 +204,22 @@ const Checkout: React.FC = () => {
                             try {
                                 localStorage.removeItem("studentCart");
                             } catch {}
-                            toast.error(
-                                "Payment successful! Redirecting to My Courses..."
+                            
+                            // Show success message
+                            toast.success(
+                                "Payment successful! You are now enrolled in the course(s)."
                             );
-                            navigate("/my-courses", { replace: true });
+                            
+                            // Redirect to student dashboard with enrolled courses tab
+                            setTimeout(() => {
+                                navigate("/student", { 
+                                    replace: true,
+                                    state: { 
+                                        activeTab: 'enrolled-courses',
+                                        message: `Successfully enrolled in ${verification.enrolledCount || courses.length} course(s)!`
+                                    }
+                                });
+                            }, 1500);
                         } else {
                             toast.error(
                                 "Payment verification failed. Please contact support."
@@ -251,51 +284,69 @@ const Checkout: React.FC = () => {
 
                     {/*  Cart Items */}
                     <div className="space-y-4">
+                        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Order Items ({cart.length})
+                        </h4>
                         {cart.map((item) => (
                             <div
                                 key={item.id}
-                                className="flex gap-4 border p-3 rounded-lg items-center"
+                                className="flex gap-4 border dark:border-gray-600 p-4 rounded-lg items-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                                 <img
-                                    // src={item.image}
-                                    src="/class5.avif"
+                                    src={item.image || "/class5.avif"}
                                     alt={item.name}
-                                    className="w-20 h-14 object-cover rounded"
+                                    className="w-24 h-16 object-cover rounded shadow-sm"
+                                    onError={(e) => {
+                                        e.currentTarget.src = "/class5.avif";
+                                    }}
                                 />
-                                <div className="flex-1">
-                                    <p className="font-semibold text-gray-900 dark:text-white">
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-gray-900 dark:text-white mb-1 line-clamp-1">
                                         {item.name}
                                     </p>
                                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        {item.variant}
+                                        By {item.variant}
                                     </p>
                                 </div>
-                                <div className="font-semibold">
-                                    ₹{item.price}
+                                <div className="font-bold text-lg text-purple-600 dark:text-purple-400">
+                                    {item.price > 0 ? `₹${item.price.toLocaleString('en-IN')}` : 'Free'}
                                 </div>
                             </div>
                         ))}
                     </div>
 
                     {/*  Summary */}
-                    <div>
-                        <div className="flex justify-between text-sm py-1">
-                            <span>Subtotal</span>
-                            <span>₹{subtotal}</span>
+                    <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border dark:border-gray-700">
+                        <div className="flex justify-between text-base py-2">
+                            <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+                            <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
                         </div>
-                        <div className="flex justify-between py-2 font-bold text-lg border-t border-gray-200 dark:border-gray-700">
-                            <span>Total</span>
-                            <span>₹{total}</span>
+                        <div className="flex justify-between text-base py-2">
+                            <span className="text-gray-600 dark:text-gray-400">Taxes & Fees</span>
+                            <span className="font-semibold text-green-600">₹0</span>
+                        </div>
+                        <div className="flex justify-between py-3 font-bold text-xl border-t-2 border-purple-200 dark:border-purple-800 mt-2">
+                            <span>Total Payable</span>
+                            <span className="text-purple-600 dark:text-purple-400">₹{total.toLocaleString('en-IN')}</span>
                         </div>
                     </div>
 
                     {/*  Place Order Button */}
                     <button
                         onClick={handlePlaceOrder}
-                        className="w-full mt-3 bg-gray-700 dark:bg-gray-900 text-white rounded py-3 font-bold text-base"
+                        disabled={cart.length === 0}
+                        className="w-full mt-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-lg py-4 font-bold text-lg shadow-lg transition-all transform hover:scale-105"
                     >
-                        Place Order
+                        {cart.length === 0 ? 'No Items to Checkout' : `Place Order • ₹${total.toLocaleString('en-IN')}`}
                     </button>
+                    
+                    {/* Security Notice */}
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-3">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                        <span>Secure checkout powered by Razorpay</span>
+                    </div>
                 </div>
             </div>
         </div>

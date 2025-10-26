@@ -24,11 +24,11 @@ class S3StorageWithProgress {
     }
 
     _handleFile(req, file, cb) {
-        // Get user ID from request (works with unified auth system)
-        const userId = req.user?.id || req.user?._id || req.creator?.id || req.creator?._id;
+        // Get user/creator ID from request (set by auth middleware)
+        const userId = req.user?.id || req.user?._id || req.user?.sub || req.creator?.id || req.creator?._id;
         
         if (!userId) {
-            return cb(new Error('User not authenticated'), null);
+            return cb(new Error('User authentication required for file upload'));
         }
         
         const fileEXT = file.originalname.split('.').pop();
@@ -120,11 +120,6 @@ class S3StorageWithProgress {
                 console.error(`Upload failed: ${file.originalname}`, err.message);
                 cb(err);
             });
-    }
-
-    _removeFile(req, file, cb) {
-    // Optional cleanup logic — or just call cb() if not needed
-    cb(null);
     }
 
 }

@@ -7,9 +7,10 @@ type Props = {
     src?: string;
     poster?: string;
     autoPlay?: boolean;
+    onEnded?: () => void;
 };
 
-const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
+const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false, onEnded }) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const hlsRef = useRef<Hls | null>(null);
     const [loading, setLoading] = useState<boolean>(!!src);
@@ -97,6 +98,11 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
             };
         }
 
+        // Add ended event listener
+        if (onEnded) {
+            video.onended = onEnded;
+        }
+
         return () => {
             if (hlsRef.current) {
                 hlsRef.current.destroy();
@@ -104,7 +110,7 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false }) => {
             }
             if (video) video.src = "";
         };
-    }, [src, autoPlay]);
+    }, [src, autoPlay, onEnded]);
 
     const handleQualityChange = (height: number | "auto") => {
         const hls = hlsRef.current;

@@ -21,7 +21,13 @@ export const authenticateToken = (req, res, next) => {
       return res.status(401).json({ error: 'No token provided' });
     }
     const payload = verifyAccessToken(token);
-    req.user = { _id: payload.sub, sub: payload.sub, role: payload.role };
+    req.user = { 
+      id: payload.id || payload.sub,
+      _id: payload._id || payload.sub, 
+      sub: payload.sub, 
+      role: payload.role,
+      email: payload.email
+    };
     next();
   } catch (error) {
     return res.status(401).json({ error: 'Authentication failed' });

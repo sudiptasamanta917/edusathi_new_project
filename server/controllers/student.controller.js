@@ -5,6 +5,7 @@ import Content from '../models/Content.js';
 import Enrollment from '../models/Enrollment.js';
 import Course from '../models/course.model.js';
 import CourseOrder from '../models/CourseOrder.js';
+import CourseEnrollment from '../models/CourseEnrollment.js';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy_key',
@@ -185,9 +186,21 @@ export const verifyStudentCoursePayment = async (req, res) => {
     if (!order) return res.status(404).json({ message: 'Order not found' });
     if (order.userId.toString() !== userId) return res.status(403).json({ message: 'Forbidden' });
 
-    // Enroll user into each course via Course.enrolledStudents
+    // Enroll user into each course using CourseEnrollment model
+    const enrolledCourses = [];
     for (const it of order.items) {
       try {
+        // Create enrollment in CourseEnrollment collection
+        const enrollment = await CourseEnrollment.create({
+          userId: order.userId,
+          courseId: it.courseId,
+          orderId: order._id,
+          progress: 0,
+          enrolledAt: new Date()
+        });
+        enrolledCourses.push(enrollment);
+
+        // Also update Course model for analytics
         await Course.findByIdAndUpdate(
           it.courseId,
           {
@@ -197,14 +210,249 @@ export const verifyStudentCoursePayment = async (req, res) => {
             $inc: { totalEnrollments: 1, enrollmentCount: 1 },
           }
         );
-      } catch (_e) {
-        // ignore
+      } catch (e) {
+        console.error('Enrollment error for course', it.courseId, e);
+        // Continue with other courses even if one fails
       }
     }
 
-    res.json({ success: true });
+    res.json({ 
+      success: true, 
+      message: 'Payment verified and enrolled successfully',
+      enrolledCount: enrolledCourses.length 
+    });
   } catch (err) {
     console.error('verifyStudentCoursePayment error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get all enrolled courses for student
+export const getMyEnrolledCourses = async (req, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const enrollments = await CourseEnrollment.find({ 
+      userId, 
+      isActive: true 
+    })
+      .populate({
+        path: 'courseId',
+        select: 'title description thumbnail price duration level subject grade creator playlists isPublished',
+        populate: {
+          path: 'creator',
+          select: 'name email profilePicture'
+        }
+      })
+      .sort({ enrolledAt: -1 });
+
+    const courses = enrollments
+      .filter(en => en.courseId) // Filter out any null courses
+      .map(en => {
+        const course = en.courseId;
+        return {
+          enrollmentId: en._id,
+          courseId: course._id,
+          title: course.title,
+          description: course.description,
+          thumbnail: course.thumbnail,
+          price: course.price,
+          duration: course.duration,
+          level: course.level,
+          subject: course.subject,
+          grade: course.grade,
+          progress: en.progress || 0,
+          enrolledAt: en.enrolledAt,
+          lastAccessedAt: en.lastAccessedAt,
+          creator: course.creator ? {
+            id: course.creator._id,
+            name: course.creator.name,
+            email: course.creator.email,
+            profilePicture: course.creator.profilePicture
+          } : null,
+          playlists: course.playlists || [],
+          isPublished: course.isPublished
+        };
+      });
+
+    res.json({ 
+      success: true,
+      courses,
+      total: courses.length 
+    });
+  } catch (err) {
+    console.error('getMyEnrolledCourses error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Check if student has access to a specific course
+export const checkCourseAccess = async (req, res) => {
+  try {
+    const userId = req.user?.sub;
+    const { courseId } = req.params;
+    
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (!courseId) return res.status(400).json({ message: 'Course ID required' });
+
+    const enrollment = await CourseEnrollment.findOne({ 
+      userId, 
+      courseId,
+      isActive: true 
+    });
+
+    if (!enrollment) {
+      return res.json({ 
+        hasAccess: false,
+        message: 'You need to purchase this course to access it'
+      });
+    }
+
+    // Update last accessed time
+    enrollment.lastAccessedAt = new Date();
+    await enrollment.save();
+
+    res.json({ 
+      hasAccess: true,
+      enrollment: {
+        id: enrollment._id,
+        progress: enrollment.progress,
+        enrolledAt: enrollment.enrolledAt,
+        completedVideos: enrollment.completedVideos || []
+      }
+    });
+  } catch (err) {
+    console.error('checkCourseAccess error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Enroll in free course (no payment required)
+export const enrollFreeCourse = async (req, res) => {
+  try {
+    const userId = req.user?.sub;
+    const { courseId } = req.body;
+    
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (!courseId) return res.status(400).json({ message: 'Course ID required' });
+
+    // Check if course exists and is free
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    // Check if course is actually free
+    if (course.price > 0) {
+      return res.status(400).json({ message: 'This course requires payment' });
+    }
+
+    // Check if already enrolled
+    const existingEnrollment = await CourseEnrollment.findOne({ 
+      userId, 
+      courseId,
+      isActive: true 
+    });
+
+    if (existingEnrollment) {
+      return res.status(400).json({ 
+        message: 'You are already enrolled in this course',
+        enrollmentId: existingEnrollment._id
+      });
+    }
+
+    // Create enrollment
+    const enrollment = await CourseEnrollment.create({
+      userId,
+      courseId,
+      progress: 0,
+      enrolledAt: new Date(),
+      isActive: true
+    });
+
+    // Update course enrollment count
+    await Course.findByIdAndUpdate(
+      courseId,
+      {
+        $addToSet: {
+          enrolledStudents: { student: userId, enrolledAt: new Date(), progress: 0 },
+        },
+        $inc: { totalEnrollments: 1, enrollmentCount: 1 },
+      }
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Successfully enrolled in free course',
+      enrollment: {
+        id: enrollment._id,
+        courseId: enrollment.courseId,
+        enrolledAt: enrollment.enrolledAt
+      }
+    });
+
+  } catch (err) {
+    console.error('enrollFreeCourse error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update course progress - mark video as complete
+export const updateCourseProgress = async (req, res) => {
+  try {
+    const userId = req.user?.sub;
+    const { courseId, videoId } = req.body;
+    
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (!courseId || !videoId) {
+      return res.status(400).json({ message: 'Course ID and Video ID required' });
+    }
+
+    // Find enrollment
+    const enrollment = await CourseEnrollment.findOne({ 
+      userId, 
+      courseId,
+      isActive: true 
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({ message: 'Enrollment not found' });
+    }
+
+    // Add video to completed list if not already there
+    if (!enrollment.completedVideos.includes(videoId)) {
+      enrollment.completedVideos.push(videoId);
+    }
+
+    // Get course to calculate progress
+    const course = await Course.findById(courseId).select('playlists');
+    if (course) {
+      // Count total videos in all playlists
+      let totalVideos = 0;
+      course.playlists.forEach(playlist => {
+        totalVideos += (playlist.videos || []).length;
+      });
+
+      // Calculate progress percentage
+      if (totalVideos > 0) {
+        enrollment.progress = Math.round((enrollment.completedVideos.length / totalVideos) * 100);
+      }
+    }
+
+    enrollment.lastAccessedAt = new Date();
+    await enrollment.save();
+
+    res.json({ 
+      success: true,
+      message: 'Progress updated successfully',
+      progress: enrollment.progress,
+      completedVideos: enrollment.completedVideos.length,
+      totalVideos: course ? course.playlists.reduce((sum, p) => sum + (p.videos || []).length, 0) : 0
+    });
+
+  } catch (err) {
+    console.error('updateCourseProgress error', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

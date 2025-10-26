@@ -3,7 +3,8 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Clock, Star, Play, Lock, BookOpen } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { PublicAPI } from "@/Api/api";
+import { PublicAPI, StudentAPI } from "@/Api/api";
+import { toast } from "sonner";
 
 type Course = {
   _id: string;
@@ -63,6 +64,10 @@ export default function CourseDetail() {
   const [course, setCourse] = useState<Course | null>(location.state?.course || null);
   const [loading, setLoading] = useState(!course);
   const [error, setError] = useState<string | null>(null);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+  const [isInCart, setIsInCart] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
 
   useEffect(() => {
     // If course data is not available from navigation state, fetch it from API
@@ -78,6 +83,77 @@ export default function CourseDetail() {
       }
     }
   }, [id, course]);
+
+  // Check enrollment and cart status
+  useEffect(() => {
+    if (!id) return;
+    
+    const checkStudentStatus = async () => {
+      setCheckingStatus(true);
+      
+      try {
+        // Check if user is logged in as student
+        const token = 
+          sessionStorage.getItem('access_token') || 
+          localStorage.getItem('access_token') || 
+          sessionStorage.getItem('accessToken') || 
+          localStorage.getItem('accessToken') || 
+          localStorage.getItem('token');
+        
+        const userRole = 
+          sessionStorage.getItem('userRole') || 
+          localStorage.getItem('userRole');
+        
+        if (token && userRole === 'student') {
+          // Check if enrolled via API
+          try {
+            const accessResponse = await StudentAPI.checkCourseAccess(id);
+            if (accessResponse?.hasAccess) {
+              setIsEnrolled(true);
+              console.log('Student is enrolled in this course');
+            }
+          } catch (error) {
+            // Not enrolled or error - that's okay
+            console.log('Not enrolled or error checking access');
+          }
+          
+          // Check if in cart
+          const cartItems = localStorage.getItem('studentCart');
+          if (cartItems) {
+            const cart = JSON.parse(cartItems);
+            const inCart = cart.some((item: any) => item.courseId === id);
+            setIsInCart(inCart);
+            if (inCart) {
+              console.log('Course is in cart');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking student status:', error);
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+    
+    checkStudentStatus();
+
+    // Listen for storage changes (cart updates from other tabs/windows)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'studentCart') {
+        const cartItems = e.newValue;
+        if (cartItems) {
+          const cart = JSON.parse(cartItems);
+          const inCart = cart.some((item: any) => item.courseId === id);
+          setIsInCart(inCart);
+        } else {
+          setIsInCart(false);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [id]);
 
   const fetchCourseDetails = async () => {
     try {
@@ -244,7 +320,7 @@ export default function CourseDetail() {
   const safeThumbnail = course?.thumbnail || '/placeholder.jpg';
 
   // Handle enrollment actions
-  const handleEnrollment = (action: 'cart' | 'buy') => {
+  const handleEnrollment = async (action: 'cart' | 'buy') => {
     // Check if user is logged in - check both localStorage and sessionStorage
     const token = 
       sessionStorage.getItem('access_token') || 
@@ -264,7 +340,7 @@ export default function CourseDetail() {
           redirectTo: `/course/${id}`,
           action: action,
           courseTitle: safeTitle,
-          message: `Please login to ${action === 'cart' ? 'add this course to cart' : 'buy this course'}`
+          message: `Please login to ${action === 'cart' ? 'add this course to cart' : 'enroll in this course'}`
         }
       });
       return;
@@ -272,7 +348,7 @@ export default function CourseDetail() {
 
     // Check if user is a student
     if (userRole !== 'student') {
-      alert('Only students can enroll in courses. Please login with a student account.');
+      toast.error('Only students can enroll in courses');
       navigate('/auth', { 
         state: { 
           redirectTo: `/course/${id}`,
@@ -284,12 +360,61 @@ export default function CourseDetail() {
       return;
     }
 
-    // If logged in as student, proceed with enrollment
-    if (action === 'cart') {
-      handleAddToCart();
+    // Check if course is free
+    const isFree = !safeIsPaid || safePrice === 0;
+    
+    if (isFree) {
+      // Enroll in free course directly
+      await handleFreeCourseEnrollment();
     } else {
-      handleBuyNow();
+      // If logged in as student and course is paid, proceed with cart/buy
+      if (action === 'cart') {
+        handleAddToCart();
+      } else {
+        handleBuyNow();
+      }
     }
+  };
+
+  const handleFreeCourseEnrollment = async () => {
+    if (!course) return;
+    
+    try {
+      setEnrolling(true);
+      toast.loading('Enrolling in course...');
+      
+      const response = await StudentAPI.enrollFreeCourse(course._id);
+      
+      toast.dismiss();
+      
+      if (response?.success) {
+        setIsEnrolled(true);
+        toast.success('🎉 Successfully enrolled in the course!');
+        // Scroll to top to show the success message
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        toast.error(response?.message || 'Failed to enroll in course');
+      }
+    } catch (error: any) {
+      toast.dismiss();
+      console.error('Free course enrollment error:', error);
+      
+      // Check if already enrolled
+      if (error.message?.includes('already enrolled')) {
+        setIsEnrolled(true);
+        toast.info('You are already enrolled in this course!');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        toast.error(error.message || 'Failed to enroll in course');
+      }
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  const handleStartLearning = () => {
+    if (!course) return;
+    navigate(`/course/${course._id}/watch`);
   };
 
   const handleAddToCart = () => {
@@ -302,7 +427,8 @@ export default function CourseDetail() {
       
       // Check if course is already in cart
       if (cartItems.some((item: any) => item.courseId === course._id)) {
-        alert('This course is already in your cart!');
+        toast.info('This course is already in your cart!');
+        setIsInCart(true);
         return;
       }
       
@@ -310,7 +436,7 @@ export default function CourseDetail() {
       const cartItem = {
         courseId: course._id,
         title: course.title,
-        price: course.price,
+        price: typeof course.price === 'number' ? course.price : Number(course.price) || 0,
         thumbnail: course.thumbnail,
         creator: course.creator?.name,
         addedAt: new Date().toISOString()
@@ -319,18 +445,14 @@ export default function CourseDetail() {
       cartItems.push(cartItem);
       localStorage.setItem('studentCart', JSON.stringify(cartItems));
       
-      // Show success message and redirect to student dashboard
-      alert('Course added to cart successfully!');
-      navigate('/student', { 
-        state: { 
-          message: 'Course added to cart successfully!',
-          activeTab: 'cart'
-        }
-      });
+      // Update cart status
+      setIsInCart(true);
       
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      alert('Failed to add course to cart. Please try again.');
+      // Show success message (no automatic redirect)
+      toast.success('✅ Course added to cart! Click "View Cart" to proceed.');
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+      toast.error('Failed to add course to cart');
     }
   };
 
@@ -592,29 +714,128 @@ export default function CourseDetail() {
               className="w-full h-48 object-cover"
             />
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {safeIsPaid ? `₹${safePrice}` : 'Free'}
-                </p>
-                {safeIsPaid && safeOriginalPrice && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 line-through">
-                    ₹{safeOriginalPrice}
-                  </p>
-                )}
-              </div>
+              {/* Status Badges */}
+              {!checkingStatus && (
+                <>
+                  {/* Enrolled Status */}
+                  {isEnrolled && (
+                    <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border-2 border-green-500 rounded-lg">
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-400 mb-2">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="font-bold text-lg">Already Enrolled!</p>
+                      </div>
+                      <p className="text-sm text-green-600 dark:text-green-300">
+                        You have full access to this course. Continue your learning journey!
+                      </p>
+                    </div>
+                  )}
 
-              <button 
-                onClick={() => handleEnrollment('cart')}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition mb-3"
-              >
-                {safeIsPaid ? 'Add to cart' : 'Enroll for Free'}
-              </button>
-              <button 
-                onClick={() => handleEnrollment('buy')}
-                className="w-full border border-purple-600 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 py-3 rounded-lg font-semibold transition"
-              >
-                {safeIsPaid ? 'Buy now' : 'Start Learning'}
-              </button>
+                  {/* In Cart Status */}
+                  {!isEnrolled && isInCart && (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500 rounded-lg">
+                      <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <p className="font-bold">In Your Cart</p>
+                      </div>
+                      <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                        This course is already in your cart. Proceed to checkout!
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Price Section */}
+              {!isEnrolled && (
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {safeIsPaid ? `₹${safePrice}` : 'Free'}
+                  </p>
+                  {safeIsPaid && safeOriginalPrice && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 line-through">
+                      ₹{safeOriginalPrice}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              {checkingStatus ? (
+                // Loading state
+                <div className="w-full py-4 text-center text-gray-500 dark:text-gray-400">
+                  <div className="animate-pulse">Checking status...</div>
+                </div>
+              ) : isEnrolled ? (
+                // Already enrolled - show Start Learning button
+                <button 
+                  onClick={handleStartLearning}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 rounded-lg transition transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Play className="w-5 h-5" />
+                  Start Learning Now
+                </button>
+              ) : isInCart ? (
+                // In cart - show different buttons
+                <>
+                  <button 
+                    onClick={() => navigate('/student/cart')}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition mb-3 flex items-center justify-center gap-2 relative"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    View Cart & Checkout
+                    {/* Cart item count badge */}
+                    {(() => {
+                      const cartItems = localStorage.getItem('studentCart');
+                      const count = cartItems ? JSON.parse(cartItems).length : 0;
+                      return count > 0 ? (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
+                          {count}
+                        </span>
+                      ) : null;
+                    })()}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      // Remove from cart
+                      const cartItems = localStorage.getItem('studentCart');
+                      if (cartItems) {
+                        const cart = JSON.parse(cartItems);
+                        const updatedCart = cart.filter((item: any) => item.courseId !== id);
+                        localStorage.setItem('studentCart', JSON.stringify(updatedCart));
+                        setIsInCart(false);
+                        toast.success('Removed from cart');
+                      }
+                    }}
+                    className="w-full border border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 py-3 rounded-lg font-semibold transition"
+                  >
+                    Remove from Cart
+                  </button>
+                </>
+              ) : (
+                // Not enrolled and not in cart - show enrollment buttons
+                <>
+                  <button 
+                    onClick={() => handleEnrollment('cart')}
+                    disabled={enrolling}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {enrolling ? 'Enrolling...' : (safeIsPaid ? 'Add to Cart' : 'Enroll for Free')}
+                  </button>
+                  <button 
+                    onClick={() => handleEnrollment('buy')}
+                    disabled={enrolling}
+                    className="w-full border border-purple-600 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {safeIsPaid ? 'Buy Now' : 'Start Learning'}
+                  </button>
+                </>
+              )}
 
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center">
                  • Full Lifetime Access

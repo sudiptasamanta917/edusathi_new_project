@@ -7,10 +7,12 @@ import { ChevronDown, LayoutDashboard, List, Video, FileText, GraduationCap, Cli
 import MyCourses from "./MyCourses";
 import CoursePurchase from "./CoursePurchase";
 import Cart from "./Cart";
+import EnrolledCourses from "./EnrolledCourses";
 import RoleDashboardLayout from "@/components/RoleDashboardLayout";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 interface CourseItem {
     enrollmentId: string;
@@ -51,11 +53,12 @@ export default function StudentDashboard() {
         setProfile(p ? JSON.parse(p) : null);
     }, []);
 
-    // Handle navigation state (from course detail page)
+    // Handle navigation state (from course detail page or payment redirect)
     useEffect(() => {
         const navigationState = location.state as any;
         if (navigationState?.message) {
             setMessage(navigationState.message);
+            toast.success(navigationState.message);
             // Clear message after 5 seconds
             setTimeout(() => setMessage(''), 5000);
         }
@@ -120,11 +123,14 @@ export default function StudentDashboard() {
         if (location.pathname.startsWith("/student/materials")) return "materials";
         if (location.pathname.startsWith("/student/mock-tests")) return "mock";
         if (location.pathname.startsWith("/student/my-courses")) return "my-courses";
+        if (location.pathname.startsWith("/student/enrolled-courses")) return "enrolled-courses";
         if (location.pathname.startsWith("/student/course-purchase")) return "course-purchase";
         if (location.pathname.startsWith("/student/cart")) return "cart";
         if (location.pathname.startsWith("/student/account")) return "account";
+        // Check activeTab from state
+        if (activeTab === 'enrolled-courses') return "enrolled-courses";
         return "home";
-    }, [location.pathname]);
+    }, [location.pathname, activeTab]);
 
     const liveItems = useMemo(() => allContents.filter((i) => i.type === "live"), [allContents]);
     const courseItems = useMemo(() => allContents.filter((i) => i.type === "video"), [allContents]);
@@ -173,6 +179,7 @@ export default function StudentDashboard() {
             ],
         },
         { title: "My Courses", href: "/student/my-courses", icon: GraduationCap, isActive: location.pathname.startsWith("/student/my-courses"), isExpandable: false as const },
+        { title: "Enrolled Courses", href: "/student/enrolled-courses", icon: Sparkles, isActive: section === "enrolled-courses", isExpandable: false as const },
         { title: "Course Purchase", href: "/student/course-purchase", icon: ShoppingCart, isActive: location.pathname.startsWith("/student/course-purchase"), isExpandable: false as const },
         { title: "Mock Tests", href: "/student/mock-tests", icon: ClipboardList, isActive: location.pathname.startsWith("/student/mock-tests"), isExpandable: false as const },
         { title: "Account", href: "/student/account", icon: User, isActive: location.pathname.startsWith("/student/account"), isExpandable: false as const },
@@ -536,6 +543,12 @@ export default function StudentDashboard() {
                     {section === "my-courses" && (
                         <div>
                             <MyCourses />
+                        </div>
+                    )}
+
+                    {section === "enrolled-courses" && (
+                        <div>
+                            <EnrolledCourses />
                         </div>
                     )}
 

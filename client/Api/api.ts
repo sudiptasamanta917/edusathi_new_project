@@ -201,11 +201,18 @@ export const PaymentAPI = {
 };
 
 export const StudentAPI = {
+  // Old content system
   createOrder: (items: { contentId: string }[]) => apiPost<any>("/api/student/create-order", { items }),
   verify: (payload: any) => apiPost<any>("/api/student/verify", payload),
   myCourses: () => apiGet<any>("/api/student/my-courses"),
+  
+  // New course enrollment system
   courseCreateOrder: (courses: { courseId: string }[]) => apiPost<any>("/api/student/course/create-order", { courses }),
   courseVerify: (payload: any) => apiPost<any>("/api/student/course/verify", payload),
+  enrollFreeCourse: (courseId: string) => apiPost<any>("/api/student/course/enroll-free", { courseId }),
+  getEnrolledCourses: () => apiGet<any>("/api/student/enrolled-courses"),
+  checkCourseAccess: (courseId: string) => apiGet<any>(`/api/student/course/${courseId}/access`),
+  updateCourseProgress: (courseId: string, videoId: string) => apiPost<any>("/api/student/course/progress", { courseId, videoId }),
 };
 
 // Templates

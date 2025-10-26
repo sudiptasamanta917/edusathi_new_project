@@ -43,6 +43,7 @@ import Invest from "./pages/Investment/invest";
 import WatchPage from "./pages/WatchPage";
 import VideoDetails from "./pages/VideoDetails";
 import CourseDetail from "./pages/CourseDetail";
+import CourseWatch from "./pages/CourseWatch";
 import Checkout from "./pages/payment/Checkout";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const router = createBrowserRouter(
             <Route path="/watch/:id" element={<WatchPage />} />
             <Route path="/video-details/:id" element={<VideoDetails />} />
             <Route path="/course/:id" element={<CourseDetail />} />
+            <Route path="/course/:id/watch" element={<CourseWatch />} />
             <Route
                 path="/student"
                 element={

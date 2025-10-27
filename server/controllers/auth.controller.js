@@ -1,0 +1,198 @@
+import bcrypt from 'bcryptjs';
+import Business from '../models/Business.js';
+import Student from '../models/Student.js';
+import Creator from '../models/creator.model.js';
+import Admin from '../models/Admin.js';
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
+import { getFileUrl } from '../middleware/upload.js';
+import { OAuth2Client } from 'google-auth-library';
+import { cookieOptions } from '../utils/cookieOptions.js';
+
+export const register = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body || {};
+    if (!name || !email || !password) return res.status(400).json({ message: 'Missing fields' });
+    const newRole = (role || 'student').toLowerCase();
+
+    const Model = getRoleModel(newRole);
+    if (!Model) return res.status(400).json({ message: 'Invalid role' });
+
+    const exists = await Model.findOne({ email: String(email).toLowerCase() });
+    if (exists) return res.status(409).json({ message: 'Email already registered for this role' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const base = { name, email: String(email).toLowerCase(), password: hash };
+    let created;
+    if (newRole === 'business') {
+      created = await Model.create({ ...base });
+    } else if (newRole === 'student') {
+      created = await Model.create({ ...base });
+    } else if (newRole === 'creator') {
+      created = await Model.create({ ...base });
+    } else if (newRole === 'admin') {
+      created = await Model.create({ ...base });
+    }
+
+    const access_token = signAccessToken({ sub: created._id.toString(), role: newRole });
+    const refresh_token = signRefreshToken({ sub: created._id.toString(), role: newRole });
+
+    // Set cookies for browser-based flows (HttpOnly). Access token short-lived.
+    res.cookie('token', access_token, cookieOptions);
+    res.cookie('refreshToken', refresh_token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+    res.status(201).json({
+      user: sanitizeRoleUser(created, newRole),
+      access_token,
+      refresh_token,
+    });
+  } catch (err) {
+    if (err && (err.code === 11000 || String(err?.message || '').toLowerCase().includes('duplicate key'))) {
+      return res.status(409).json({ message: 'Email already registered' });
+    }
+    console.error('register error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+function getRoleModel(role) {
+  if (role === 'business') return Business;
+  if (role === 'student') return Student;
+  if (role === 'creator') return Creator;
+  if (role === 'admin') return Admin;
+  return null;
+}
+
+export const login = async (req, res) => {
+  try {
+    const { email, password, role } = req.body || {};
+    if (!email || !password) return res.status(400).json({ message: 'Missing credentials' });
+    // Default to 'student' role when role is not provided by client
+    const selectedRole = (role || 'student').toLowerCase();
+    const Model = getRoleModel(selectedRole);
+    if (!Model) return res.status(400).json({ message: 'role is required' });
+
+    const account = await Model.findOne({ email: String(email).toLowerCase() });
+    if (!account) return res.status(401).json({ message: 'Invalid credentials' });
+
+    const ok = await bcrypt.compare(password, account.password || '');
+    if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
+
+    const access_token = signAccessToken({ sub: account._id.toString(), role: selectedRole });
+    const refresh_token = signRefreshToken({ sub: account._id.toString(), role: selectedRole });
+
+    // Set cookies for browser-based flows
+    res.cookie('token', access_token, cookieOptions);
+    res.cookie('refreshToken', refresh_token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+    res.json({
+      user: sanitizeRoleUser(account, selectedRole),
+      access_token,
+      refresh_token,
+    });
+  } catch (err) {
+    console.error('login error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const refresh = async (req, res) => {
+  try {
+    // Accept refresh token from body or cookie for flexibility
+    const bodyToken = (req.body || {}).refresh_token;
+    const cookieToken = req.cookies?.refreshToken;
+    const token = bodyToken || cookieToken;
+    if (!token) return res.status(400).json({ message: 'Missing refresh_token' });
+
+    const payload = verifyRefreshToken(token);
+    const access_token = signAccessToken({ sub: payload.sub, role: payload.role });
+
+    // Update access token cookie
+    res.cookie('token', access_token, cookieOptions);
+    return res.json({ access_token });
+  } catch (_err) {
+    res.status(401).json({ message: 'Invalid refresh token' });
+  }
+};
+
+export const getProfile = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const role = req.user?.role;
+    const Model = getRoleModel(role);
+    if (!Model) return res.status(400).json({ error: 'Invalid role' });
+
+    const account = await Model.findById(userId).select('name email avatarUrl');
+    if (!account) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ user: sanitizeRoleUser(account, role) });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const updateAvatar = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const role = req.user?.role;
+    const Model = getRoleModel(role);
+    if (!Model) return res.status(400).json({ error: 'Invalid role' });
+
+    const account = await Model.findById(userId);
+    if (!account) return res.status(404).json({ error: 'User not found' });
+
+    account.avatarUrl = getFileUrl(file.filename);
+    await account.save();
+
+    res.json({ user: sanitizeRoleUser(account, role) });
+  } catch (error) {
+    console.error('Update avatar error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const googleAuth = async (req, res) => {
+  try {
+    const { id_token, role } = req.body || {};
+    if (!id_token) return res.status(400).json({ message: 'Missing id_token' });
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const client = new OAuth2Client(clientId);
+    const ticket = await client.verifyIdToken({ idToken: id_token, audience: clientId });
+    const payload = ticket.getPayload() || {};
+    const email = String(payload.email || '').toLowerCase();
+    if (!email) return res.status(400).json({ message: 'No email in token' });
+    const name = payload.name || email.split('@')[0];
+    const picture = payload.picture || '';
+    const selectedRole = (role || 'student').toLowerCase();
+    const Model = getRoleModel(selectedRole);
+    if (!Model) return res.status(400).json({ message: 'Invalid role' });
+    let account = await Model.findOne({ email });
+    if (!account) {
+      const hash = await bcrypt.hash(String(Math.random()) + Date.now(), 10);
+      account = await Model.create({ name, email, password: hash, avatarUrl: picture });
+    }
+    const access_token = signAccessToken({ sub: account._id.toString(), role: selectedRole });
+    const refresh_token = signRefreshToken({ sub: account._id.toString(), role: selectedRole });
+    res.json({ user: sanitizeRoleUser(account, selectedRole), access_token, refresh_token });
+  } catch (err) {
+    console.error('google auth error', err);
+    res.status(401).json({ message: 'Invalid Google token' });
+  }
+};
+
+function sanitizeRoleUser(doc, role) {
+  return { id: String(doc._id), name: doc.name, email: doc.email, role: role, roles: [role], avatarUrl: doc.avatarUrl || '' };
+}

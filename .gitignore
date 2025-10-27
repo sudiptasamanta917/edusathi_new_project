@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.config/
+
+# Environment variables (to prevent committing real secrets)
+.env.local
+.env.production
+.env.development
+server/.env.local
+server/.env.production
+
+# AWS credentials and sensitive files
+*.pem
+*.key
+aws-credentials.json
+secrets/
+credentials/
+
+# Note: server/.env is intentionally NOT ignored since it contains placeholder values

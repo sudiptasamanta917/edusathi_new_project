@@ -1,0 +1,71 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: |
+          client/package-lock.json
+          server/package-lock.json
+
+    - name: Install client dependencies
+      run: |
+        cd client
+        npm ci
+
+    - name: Build client
+      run: |
+        cd client
+        npm run build
+
+    - name: Install server dependencies
+      run: |
+        cd server
+        npm ci
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          # Fix PATH for Node/NPM/PM2
+          export NVM_DIR="$HOME/.nvm"
+          export PATH="$NVM_DIR/versions/node/v22.18.0/bin:$PATH"
+          
+          # Navigate to project directory
+          cd /var/www/edusathi
+          
+          # Pull latest changes
+          git pull origin main
+          
+          # Update server dependencies
+          cd server
+          npm install --production
+          
+          # Update client and build
+          cd ../client
+          npm install
+          node --max-old-space-size=2048 ./node_modules/.bin/vite build
+          
+          # Restart application
+          pm2 restart edusathi-server || pm2 start start.js --name edusathi-server
+          
+          # Reload Nginx
+          sudo systemctl reload nginx

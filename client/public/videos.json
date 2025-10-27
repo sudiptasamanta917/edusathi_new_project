@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1",
+    "title": "Big Buck Bunny",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Big_Buck_Bunny_thumbnail_vlc.png/640px-Big_Buck_Bunny_thumbnail_vlc.png",
+    "duration": "8:18",
+    "author": "Blender Foundation",
+    "videoUrl": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    "description": "Big Buck Bunny is a short animated film by the Blender Foundation.",
+    "views": "24,969,123"
+  },
+  {
+    "id": "2",
+    "title": "Elephant Dream",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/9/90/Elephants_Dream_s1_proog.jpg",
+    "duration": "10:53",
+    "author": "Blender Foundation",
+    "videoUrl": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+    "description": "Elephant Dream is the first open movie from the Blender Foundation.",
+    "views": "17,500,000"
+  },
+  {
+    "id": "3",
+    "title": "For Bigger Blazes",
+    "thumbnailUrl": "https://i.ytimg.com/vi/Dr9C2oswZfA/maxresdefault.jpg",
+    "duration": "5:20",
+    "author": "Google",
+    "videoUrl": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    "description": "This is a sample video for testing.",
+    "views": "1,000,000"
+  }
+]

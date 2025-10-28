@@ -16,12 +16,12 @@ type Video = {
         price: number;
     };
     creator: {
-        _id: string;
+        _id: string | null;
         firstName: string;
         lastName: string;
         email: string;
         profilePicture?: string;
-    };
+    } | null;
     views: number;
     isPremium?: boolean;
     isPublic?: boolean;
@@ -209,8 +209,8 @@ export default function AllVideos() {
                                             {video.title}
                                         </h3>
                                         <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                                            {video.creator.firstName}{" "}
-                                            {video.creator.lastName}
+                                            {video.creator?.firstName || "Unknown"}{" "}
+                                            {video.creator?.lastName || "Creator"}
                                         </p>
 
                                         <div className="flex mt-3 space-x-2">

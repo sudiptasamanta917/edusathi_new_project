@@ -20,6 +20,30 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false, onEnded }
     const [currentQuality, setCurrentQuality] = useState<number | "auto">(
         "auto"
     );
+    const [fallbackAttempted, setFallbackAttempted] = useState(false);
+
+    // Helper: Convert HLS URL back to possible MP4 URLs for fallback
+    const getPossibleMp4Urls = (hlsUrl: string): string[] => {
+        const urls: string[] = [];
+        
+        // Pattern 1: .../videos/userId/videoId/hls/master.m3u8 → .../videos/userId/videoId.mp4
+        const match1 = hlsUrl.match(/^(.+\/videos\/[^/]+\/[^/]+)\/hls\/master\.m3u8$/);
+        if (match1) {
+            urls.push(`${match1[1]}.mp4`);
+        }
+        
+        // Pattern 2: Try bucket domain variations
+        // videos-edusathi.net → temp-row-videos-edusathi.net
+        const withTempBucket = hlsUrl.replace(
+            'videos-edusathi.net',
+            'temp-row-videos-edusathi.net'
+        ).replace('/hls/master.m3u8', '.mp4');
+        if (withTempBucket !== hlsUrl) {
+            urls.push(withTempBucket);
+        }
+        
+        return urls;
+    };
 
     useEffect(() => {
         const video = videoRef.current;
@@ -30,9 +54,10 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false, onEnded }
 
         setError(null);
         setLoading(true);
+        setFallbackAttempted(false); // Reset fallback flag for new video
 
-    // more robust HLS detection: consider query params and content-type hints
-    const isHls = /\.m3u8(\?|$)/i.test(src) || src.includes("hls") || src.includes("m3u8");
+    // HLS detection: Only consider it HLS if URL ends with .m3u8 or .ts (not just contains 'hls' keyword)
+    const isHls = /\.(m3u8|ts)(\?|$)/i.test(src);
 
         if (isHls && Hls.isSupported()) {
             const hls = new Hls();
@@ -61,7 +86,49 @@ const VideoPlayer: React.FC<Props> = ({ src, poster, autoPlay = false, onEnded }
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            hls.startLoad();
+                            // Try fallback to original MP4 if HLS master.m3u8 fails (403/404)
+                            if (!fallbackAttempted && data.details === 'manifestLoadError') {
+                                console.log('HLS manifest failed, attempting MP4 fallback...');
+                                const mp4Urls = getPossibleMp4Urls(src);
+                                
+                                if (mp4Urls.length > 0) {
+                                    setFallbackAttempted(true);
+                                    hls.destroy();
+                                    
+                                    // Try URLs sequentially
+                                    let currentIndex = 0;
+                                    const tryNextUrl = () => {
+                                        if (currentIndex >= mp4Urls.length) {
+                                            console.error('All MP4 fallback URLs failed');
+                                            setError('Video playback failed. File may not exist.');
+                                            setLoading(false);
+                                            return;
+                                        }
+                                        
+                                        const url = mp4Urls[currentIndex];
+                                        console.log(`Trying fallback URL ${currentIndex + 1}/${mp4Urls.length}:`, url);
+                                        video.src = url;
+                                        
+                                        video.onloadedmetadata = () => {
+                                            console.log('✅ Fallback URL worked:', url);
+                                            setLoading(false);
+                                            if (autoPlay) video.play().catch(() => {});
+                                        };
+                                        
+                                        video.onerror = () => {
+                                            console.log(`❌ Fallback URL ${currentIndex + 1} failed`);
+                                            currentIndex++;
+                                            tryNextUrl();
+                                        };
+                                    };
+                                    
+                                    tryNextUrl();
+                                } else {
+                                    hls.startLoad();
+                                }
+                            } else {
+                                hls.startLoad();
+                            }
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
                             hls.recoverMediaError();

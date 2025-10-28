@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Clock, Star, Play, Lock, BookOpen } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
@@ -68,21 +68,29 @@ export default function CourseDetail() {
   const [enrolling, setEnrolling] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const hasFetchedRef = useRef(false);
+
+  // Reset fetch flag when ID changes
+  useEffect(() => {
+    hasFetchedRef.current = false;
+  }, [id]);
 
   useEffect(() => {
     // If course data is not available from navigation state, fetch it from API
-    if (id) {
+    if (id && !hasFetchedRef.current) {
       // If we have a course from navigation but it lacks playlists, fetch full details
       if (course && (!course.playlists || course.playlists.length === 0)) {
+        hasFetchedRef.current = true;
         fetchCourseDetails();
         return;
       }
 
       if (!course) {
+        hasFetchedRef.current = true;
         fetchCourseDetails();
       }
     }
-  }, [id, course]);
+  }, [id]);
 
   // Check enrollment and cart status
   useEffect(() => {

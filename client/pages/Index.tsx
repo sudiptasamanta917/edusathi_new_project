@@ -13,9 +13,10 @@ import FAQ from "@/components/home/sections/FAQ";
 import ContactSection from "@/components/home/sections/ContactSection";
 import FinalCTA from "@/components/home/sections/FinalCTA";
 import CourseVideos from "@/components/home/sections/CourseVideos";
-import TrendingVideos from "@/components/home/sections/TrendingVideos";
-import AllVideos from "@/components/home/sections/AllVideos";
+// import TrendingVideos from "@/components/home/sections/TrendingVideos";
+// import AllVideos from "@/components/home/sections/AllVideos";
 import AllCourses from "@/components/home/sections/AllCourses";
+// import AllVideos from "@/components/home/sections/AllVideos";
 
 export default function Index() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -31,9 +32,9 @@ export default function Index() {
                   <EnhancedHeroSection />
                   <ValueProposition />
                   <AllCourses />
-                  <TrendingVideos />
+                  {/* <TrendingVideos /> */}
                   <CourseVideos />
-                  <AllVideos />
+                  {/* <AllVideos /> */}
                   <Features />
                   <Stats />
                   <Testimonials />

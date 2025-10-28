@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Filter, ShoppingCart, Star, Clock, BookOpen, User, Play } from "lucide-react";
-import { PublicAPI } from "@/Api/api";
+import { PublicAPI, StudentAPI } from "@/Api/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 type Course = {
     _id: string;
@@ -34,6 +35,7 @@ export default function CoursePurchase() {
     const [selectedSubject, setSelectedSubject] = useState("all");
     const [cart, setCart] = useState<string[]>([]);
     const navigate = useNavigate();
+    const { toast } = useToast();
 
     // Get unique subjects for filter
     const subjects = Array.from(new Set(courses.map(course => course.subject))).filter(Boolean);
@@ -42,7 +44,7 @@ export default function CoursePurchase() {
     const filteredCourses = courses.filter(course => {
         const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            course.creator.name.toLowerCase().includes(searchTerm.toLowerCase());
+                            (course.creator?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesFilter = selectedFilter === "all" ||
                             (selectedFilter === "free" && !course.isPaid) ||
@@ -100,7 +102,7 @@ export default function CoursePurchase() {
         navigate(`/course/${course._id}`, { state: { course } });
     };
 
-    const handleBuyNow = (course: Course) => {
+    const handleBuyNow = async (course: Course) => {
         if (course.isPaid) {
             navigate('/checkout', { 
                 state: { 
@@ -109,8 +111,45 @@ export default function CoursePurchase() {
                 }
             });
         } else {
-            // For free courses, directly enroll
-            alert('Enrolling in free course! (Feature coming soon)');
+            // For free courses, enroll via API and navigate to course
+            try {
+                const response = await StudentAPI.enrollFreeCourse(course._id);
+                
+                if (response.success) {
+                    toast({
+                        title: "Enrollment Successful! 🎉",
+                        description: response.message || "You have been enrolled in this free course.",
+                        variant: "default",
+                    });
+                    // Navigate to course detail page after a short delay
+                    setTimeout(() => {
+                        navigate(`/course/${course._id}`, { state: { course } });
+                    }, 500);
+                } else {
+                    throw new Error(response.message || 'Enrollment failed');
+                }
+            } catch (error: any) {
+                console.error('Enrollment error:', error);
+                const errorMessage = error.message || 'Failed to enroll in course. Please try again.';
+                
+                // Check if already enrolled
+                if (errorMessage.includes('already enrolled')) {
+                    toast({
+                        title: "Already Enrolled",
+                        description: "You are already enrolled in this course. Redirecting...",
+                        variant: "default",
+                    });
+                    setTimeout(() => {
+                        navigate(`/course/${course._id}`, { state: { course } });
+                    }, 1000);
+                } else {
+                    toast({
+                        title: "Enrollment Failed",
+                        description: errorMessage,
+                        variant: "destructive",
+                    });
+                }
+            }
         }
     };
 
@@ -259,7 +298,7 @@ export default function CoursePurchase() {
                                     <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
                                         <div className="flex items-center gap-1">
                                             <User className="w-3 h-3" />
-                                            <span>{course.creator.name}</span>
+                                            <span>{course.creator?.name || 'Unknown Creator'}</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <BookOpen className="w-3 h-3" />

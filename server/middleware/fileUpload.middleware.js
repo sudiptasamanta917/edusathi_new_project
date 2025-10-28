@@ -10,6 +10,7 @@ const s3 = new S3Client({
         accessKeyId: process.env.S3_ACCESS_KEY
     },
     region: process.env.S3_REGION,
+    forcePathStyle: true, // Use path-style URLs to avoid SSL certificate issues
     requestHandler: {
         requestTimeout: 900000, // 15 minutes
         connectionTimeout: 900000 // 15 minutes
@@ -103,12 +104,19 @@ class S3StorageWithProgress {
         upload.done()
             .then((data) => {
                 console.log(`Upload complete: ${file.originalname}`);
-                console.log(`S3 Location: ${data.Location}`);
+                
+                // Build path-style URL instead of virtual-hosted-style to avoid SSL issues
+                // Path-style: https://s3.region.amazonaws.com/bucket-name/key
+                // Virtual-hosted: https://bucket-name.s3.region.amazonaws.com/key (causes SSL errors)
+                const region = process.env.S3_REGION || 'ap-south-1';
+                const pathStyleUrl = `https://s3.${region}.amazonaws.com/${this.bucket}/${filePath}`;
+                
+                console.log(`S3 Location: ${pathStyleUrl}`);
                 
                 cb(null, {
                     bucket: this.bucket,
                     key: filePath,
-                    location: data.Location,
+                    location: pathStyleUrl,
                     etag: data.ETag,
                     size: totalBytes,
                     fieldname: file.fieldname,

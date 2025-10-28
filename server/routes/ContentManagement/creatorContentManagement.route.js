@@ -16,11 +16,12 @@ const __dirname = path.dirname(__filename);
 
 // Configure AWS S3 Client (v3)
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'ap-south-1',
+  region: process.env.S3_REGION || 'ap-south-1',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_KEY,
   },
+  forcePathStyle: true, // Use path-style URLs to avoid SSL certificate issues
 });
 
 
@@ -151,8 +152,8 @@ router.get("/public/courses/:courseId", async (req, res) => {
       } : null,
       playlists: (course.playlists || []).map(playlist => {
         const videos = (playlist.videos || []).map(video => {
-          // Convert mp4 URL to HLS only if it's a string and matches pattern
-          const videoUrl = typeof video.videoUrl === 'string' ? convertToHlsUrl(video.videoUrl) : video.videoUrl;
+          // Use original video URL as stored (no conversion needed)
+          const videoUrl = video.videoUrl || null;
           const duration = video.duration || '15 mins';
           return {
             _id: video._id,
@@ -232,23 +233,42 @@ router.get("/public/courses/:courseId", async (req, res) => {
 });
 
 // Utility: Convert S3 MP4 URL → proper HLS master.m3u8 URL
+// NOTE: This assumes HLS conversion is already done. If not, returns original MP4 URL.
 function convertToHlsUrl(originalUrl) {
   if (!originalUrl) return originalUrl;
 
-  // Match both S3 URL formats:
-  // 1. https://videos-edusathi.net.s3.ap-south-1.amazonaws.com/videos/<userId>/<videoId>.mp4
-  // 2. https://s3.ap-south-1.amazonaws.com/videos-edusathi.net/videos/<userId>/<videoId>.mp4
-  const pattern =
+  // If already has master.m3u8 or segments, return as-is (HLS format)
+  if (originalUrl.includes('/hls/master.m3u8') || originalUrl.includes('/hls/') && originalUrl.includes('.ts')) {
+    return originalUrl;
+  }
+
+  // Pattern 1: Regular MP4 - .../videos/<userId>/<videoId>.mp4
+  const pattern1 =
     /^https:\/\/(?:([a-zA-Z0-9.-]+)\.s3\.ap-south-1\.amazonaws\.com|s3\.ap-south-1\.amazonaws\.com\/([a-zA-Z0-9.-]+))\/videos\/([^/]+)\/([^/.]+)\.mp4$/;
 
-  const match = originalUrl.match(pattern);
-  if (!match) return originalUrl; // Leave as-is if it doesn’t match
+  const match1 = originalUrl.match(pattern1);
+  if (match1) {
+    const userId = match1[3];
+    const videoId = match1[4];
+    // Try HLS URL first, but if it fails (403), player will fallback
+    return `https://s3.ap-south-1.amazonaws.com/${process.env.S3_STORAGE_NAME}/videos/${userId}/${videoId}/hls/master.m3u8`;
+  }
 
-  const bucketName = match[1] || match[2];
-  const userId = match[3];
-  const videoId = match[4];
+  // Pattern 2: MP4 in HLS folder - .../videos/<userId>/<videoId>/hls/1080p/<filename>.mp4
+  // This indicates HLS processing might be in progress or complete
+  const pattern2 =
+    /^https:\/\/(?:([a-zA-Z0-9.-]+)\.s3\.ap-south-1\.amazonaws\.com|s3\.ap-south-1\.amazonaws\.com\/([a-zA-Z0-9.-]+))\/videos\/([^/]+)\/([^/]+)\/hls\/\d+p\/.+\.mp4$/;
 
-  return `https://s3.ap-south-1.amazonaws.com/${process.env.S3_STORAGE_NAME}/videos/${userId}/${videoId}/hls/master.m3u8`;
+  const match2 = originalUrl.match(pattern2);
+  if (match2) {
+    const userId = match2[3];
+    const videoId = match2[4];
+    return `https://s3.ap-south-1.amazonaws.com/${process.env.S3_STORAGE_NAME}/videos/${userId}/${videoId}/hls/master.m3u8`;
+  }
+
+  // No match - return original URL as-is (will play as direct MP4)
+  console.log('No HLS conversion pattern matched, using original URL:', originalUrl);
+  return originalUrl;
 }
 
 // Helper: convert string boolean safely
@@ -324,10 +344,10 @@ router.post(
                     thumbnailUrl = thumbnailFile.location;
                 } else if (thumbnailFile.buffer) {
                     // Upload to S3 directly or save locally
-                    if (process.env.AWS_S3_BUCKET) {
+                    if (process.env.S3_BUCKET_NAME) {
                         // S3 Upload using AWS SDK v3
                         const uploadParams = {
-                            Bucket: process.env.AWS_S3_BUCKET,
+                            Bucket: process.env.S3_BUCKET_NAME,
                             Key: `course-thumbnails/${creatorId}/${thumbnailFilename}`,
                             Body: thumbnailFile.buffer,
                             ContentType: thumbnailFile.mimetype,
@@ -368,10 +388,10 @@ router.post(
                     previewVideoUrl = videoFile.location;
                 } else if (videoFile.buffer) {
                     // Upload to S3 directly or save locally
-                    if (process.env.AWS_S3_BUCKET) {
+                    if (process.env.S3_BUCKET_NAME) {
                         // S3 Upload using AWS SDK v3
                         const uploadParams = {
-                            Bucket: process.env.AWS_S3_BUCKET,
+                            Bucket: process.env.S3_BUCKET_NAME,
                             Key: `course-previews/${creatorId}/${videoFilename}`,
                             Body: videoFile.buffer,
                             ContentType: videoFile.mimetype,
@@ -627,9 +647,10 @@ router.post("/videos/upload", authenticateToken, requireRole(['creator']),
       });
     }
 
-    // --- Generate HLS streaming URL ---
-    const hlsUrl = convertToHlsUrl(videoFile.location, process.env.S3_STORAGE_NAME);
-    console.log(hlsUrl);
+    // --- Use original uploaded URL (HLS conversion not implemented yet) ---
+    // Frontend VideoPlayer will handle both HLS and MP4 formats
+    const videoUrl = videoFile.location;
+    console.log('Original video URL:', videoUrl);
     
     // --- Handle thumbnail URL ---
     const thumbnailUrl = thumbnailFile ? thumbnailFile.location : null;
@@ -638,7 +659,7 @@ router.post("/videos/upload", authenticateToken, requireRole(['creator']),
     const video = new Video({
       title,
       description,
-      videoUrl: hlsUrl,
+      videoUrl: videoUrl,
       thumbnail: thumbnailUrl,
       duration: Number(duration) || 0,
       quality: quality || "720p",
@@ -957,11 +978,27 @@ router.get("/all-videos", async (req, res) => {
             .limit(parseInt(limit))
             .select("-__v");
 
-        //  Convert all stored .mp4 links → HLS .m3u8 format
-        videos.forEach((video) => {
-            if (video.videoUrl && video.videoUrl.endsWith(".mp4")) {
-                video.videoUrl = convertToHlsUrl(video.videoUrl);
+        //  Convert all stored .mp4 links → HLS .m3u8 format and handle null creators
+        const formattedVideos = videos.map((video) => {
+            const videoObj = video.toObject();
+            
+            // Convert video URL to HLS format (handles all MP4 URLs including those in hls/1080p folder)
+            if (videoObj.videoUrl) {
+                videoObj.videoUrl = convertToHlsUrl(videoObj.videoUrl);
             }
+            
+            // Handle null creator - provide default values
+            if (!videoObj.creator) {
+                videoObj.creator = {
+                    _id: null,
+                    firstName: "Unknown",
+                    lastName: "Creator",
+                    email: "",
+                    profilePicture: null
+                };
+            }
+            
+            return videoObj;
         });
 
         const totalVideos = await Video.countDocuments(filter);
@@ -972,7 +1009,7 @@ router.get("/all-videos", async (req, res) => {
             status: true,
             message: "All videos retrieved successfully",
             data: {
-                videos,
+                videos: formattedVideos,
                 pagination: {
                     currentPage: parseInt(page),
                     totalPages,

@@ -1,15 +1,5 @@
-import dotenv from "dotenv";
-import fs from "fs";
+import "dotenv/config";
 import express from "express";
-
-// Load environment variables - prioritize .env.local if it exists
-if (fs.existsSync('.env.local')) {
-  console.log('🔧 Loading environment from .env.local (with real credentials)');
-  dotenv.config({ path: '.env.local' });
-} else {
-  console.log('🔧 Loading environment from .env (with placeholders)');
-  dotenv.config();
-}
 import connectDB from "./config/db.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";

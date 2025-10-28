@@ -72,7 +72,7 @@ fi
 
 # Clone NSVI template repository
 echo "📥 Cloning NSVI template repository..."
-sudo git clone https://${process.env.GH_TOKEN}@github.com/GS3-dev/NSVI.git ${business.name} || { 
+git clone git@gs3-dev:GS3-dev/NSVI.git ${business.name} || { 
     echo "❌ Failed to clone NSVI repository"; 
     echo "🔍 Please check repository access and network connection";
     exit 1; 

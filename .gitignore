@@ -25,21 +25,6 @@ dist-ssr
 
 .config/
 
-# Environment files with real secrets (NEVER commit these)
-.env.local
-.env.production
-.env.staging
-server/.env.local
-server/.env.production
-server/.env.staging
-
-# AWS and sensitive files
-*.pem
-ecosystem.config.js
-aws-credentials.json
-
-# Note: server/.env contains only placeholders and is safe to commit
-
 # Environment variables (to prevent committing real secrets)
 .env.local
 .env.production

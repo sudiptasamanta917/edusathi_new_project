@@ -12,13 +12,19 @@ export default function Footer() {
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Edusathi
-              </span>
+            <div className="">
+                <div>
+                        <img
+                            src="/logo-light.png"
+                            alt="logo"
+                            className="bg-transparent md:h-16 h-12 dark:hidden"
+                        />
+                        <img
+                            src="/logo-dark.png"
+                            alt="logo"
+                            className="bg-transparent md:h-16 h-12 hidden dark:block"
+                        />
+                    </div>
             </div>
             <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md">
               All-in-one AI-powered platform for institutes. Take your

@@ -133,11 +133,23 @@ export const createStudentCourseOrder = async (req, res) => {
     const foundCourses = await Course.find({ _id: { $in: ids }, isActive: { $ne: false } });
     if (foundCourses.length !== ids.length) return res.status(400).json({ message: 'Some courses not found' });
 
-    const amountRupees = foundCourses.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
+    // Calculate total amount in rupees
+    const amountRupees = foundCourses.reduce((sum, c) => {
+      const price = Number(c.price) || 0;
+      console.log(`Course ${c._id} price: ${price} rupees`);
+      return sum + price;
+    }, 0);
+
+    // Convert to paise (1 rupee = 100 paise)
     const amountPaise = Math.max(1, Math.round(amountRupees * 100));
+    console.log(`Total amount: ${amountRupees} rupees = ${amountPaise} paise`);
 
     const receipt = `crs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const rpOrder = await razorpay.orders.create({ amount: amountPaise, currency: 'INR', receipt });
+    const rpOrder = await razorpay.orders.create({ 
+      amount: amountPaise, 
+      currency: 'INR', 
+      receipt 
+    });
 
     const order = await CourseOrder.create({
       userId,
@@ -167,19 +179,50 @@ export const verifyStudentCoursePayment = async (req, res) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body || {};
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'dummy_secret')
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
-
-    if (expectedSignature !== razorpay_signature) {
-      await CourseOrder.findByIdAndUpdate(orderId, { status: 'failed' });
-      return res.status(400).json({ success: false, message: 'Payment verification failed' });
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      console.error('Missing required payment verification fields:', {
+        hasOrderId: !!razorpay_order_id,
+        hasPaymentId: !!razorpay_payment_id,
+        hasSignature: !!razorpay_signature
+      });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required payment verification fields',
+        details: 'Please provide razorpay_order_id, razorpay_payment_id, and razorpay_signature'
+      });
     }
 
-    const order = await CourseOrder.findByIdAndUpdate(
-      orderId,
-      { status: 'paid', razorpay_order_id, razorpay_payment_id },
+    const secret = process.env.RAZORPAY_KEY_SECRET || 'dummy_secret';
+    const payload = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
+
+    console.log('Verifying payment:', {
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      receivedSignature: razorpay_signature,
+      expectedSignature: expectedSignature,
+      match: expectedSignature === razorpay_signature
+    });
+
+    if (expectedSignature !== razorpay_signature) {
+      await CourseOrder.findOneAndUpdate(
+        { razorpay_order_id },
+        { status: 'failed' },
+        { new: true }
+      );
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Payment verification failed',
+        details: 'Signature verification failed. Please ensure you are sending the correct signature.'
+      });
+    }
+
+    const order = await CourseOrder.findOneAndUpdate(
+      { razorpay_order_id },
+      { status: 'paid', razorpay_payment_id },
       { new: true }
     );
 
